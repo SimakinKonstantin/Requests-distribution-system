@@ -12,7 +12,7 @@ type Config struct {
 func Load() *Config {
 	return &Config{
 		ConnectionString: getEnv("DATABASE_URL", ""),
-		ServerAddr:       getEnv("SERVER_ADDR", ""),
+		ServerAddr:       getEnv("SERVER_ADDR", ":8080"),
 	}
 }
 

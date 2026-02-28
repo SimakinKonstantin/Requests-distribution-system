@@ -22,11 +22,11 @@ type appealDB struct {
 }
 
 // toAppealDB converts a domain Appeal to the DB struct.
-// EmployeeID == 0 is treated as "not assigned" and stored as NULL.
+// nil EmployeeID is stored as NULL.
 func toAppealDB(a model.Appeal) appealDB {
 	empID := sql.NullInt64{}
-	if a.EmployeeID != 0 {
-		empID = sql.NullInt64{Int64: int64(a.EmployeeID), Valid: true}
+	if a.EmployeeID != nil {
+		empID = sql.NullInt64{Int64: int64(*a.EmployeeID), Valid: true}
 	}
 	status := a.Status
 	if status == "" {
@@ -44,9 +44,10 @@ func toAppealDB(a model.Appeal) appealDB {
 }
 
 func (a appealDB) toDomain() model.Appeal {
-	empID := 0
+	var empID *int
 	if a.EmployeeID.Valid {
-		empID = int(a.EmployeeID.Int64)
+		v := int(a.EmployeeID.Int64)
+		empID = &v
 	}
 	return model.Appeal{
 		ID:         a.ID,
@@ -108,7 +109,7 @@ func (r *appealRepo) GetByID(id int) (model.Appeal, error) {
 
 func (r *appealRepo) Create(a model.Appeal) (model.Appeal, error) {
 	row := toAppealDB(a)
-	var empArg interface{}
+	var empArg interface{} // nil → SQL NULL
 	if row.EmployeeID.Valid {
 		empArg = row.EmployeeID.Int64
 	}

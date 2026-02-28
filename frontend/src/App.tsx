@@ -20,7 +20,9 @@ export default function App() {
   return (
     <div style={layout}>
       <aside style={sidebar}>
-        <div style={logo}>ADS</div>
+        <div style={logo}>
+          <div style={logoTitle}>Система распределения обращений</div>
+        </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {navItems.map(({ to, label }) => (
             <NavLink key={to} to={to} style={({ isActive }) => ({ ...navLink, ...(isActive ? navActive : {}) })}>
@@ -55,8 +57,11 @@ const sidebar: React.CSSProperties = {
   position: 'sticky', top: 0, height: '100vh',
 }
 const logo: React.CSSProperties = {
-  fontSize: 22, fontWeight: 800, letterSpacing: 2,
-  color: '#7c8cf8', marginBottom: 36, paddingLeft: 8,
+  marginBottom: 36, paddingLeft: 8,
+}
+const logoTitle: React.CSSProperties = {
+  fontSize: 14, fontWeight: 700, color: '#7c8cf8',
+  lineHeight: 1.35, letterSpacing: 0.3,
 }
 const navLink: React.CSSProperties = {
   display: 'block', padding: '10px 14px', borderRadius: 8,

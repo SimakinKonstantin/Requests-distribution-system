@@ -40,7 +40,7 @@ export default function AppealsPage() {
   const closeCreate = () => setCreateModal(false)
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    await create({ ...createForm, employeeId: 0, status: 'active' })
+    await create({ ...createForm, employeeId: null, status: 'active' })
     closeCreate()
   }
 
@@ -48,7 +48,7 @@ export default function AppealsPage() {
   const [editModal, setEditModal] = useState(false)
   const [editing, setEditing] = useState<Appeal | null>(null)
   const [editForm, setEditForm] = useState<EditForm>({
-    clientId: 0, employeeId: 0, themeId: 0, subthemeId: 0, text: '', status: 'active',
+    clientId: 0, employeeId: null, themeId: 0, subthemeId: 0, text: '', status: 'active',
   })
   const openEdit = (item: Appeal) => {
     setEditing(item)
@@ -207,8 +207,8 @@ export default function AppealsPage() {
               </select>
             </label>
             <label style={labelS}>Сотрудник (email)
-              <select style={input} value={editForm.employeeId}
-                onChange={e => setE('employeeId', Number(e.target.value))}>
+              <select style={input} value={editForm.employeeId ?? 0}
+                onChange={e => setE('employeeId', e.target.value === '0' ? null : Number(e.target.value))}>
                 <option value={0}>- не назначен -</option>
                 {employees.map(emp =>
                   <option key={emp.id} value={emp.id}>{emp.email}</option>

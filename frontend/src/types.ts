@@ -31,7 +31,7 @@ export interface Slot {
 export interface Appeal {
   id: number
   clientId: number
-  employeeId: number
+  employeeId: number | null  // null = not yet assigned
   themeId: number
   subthemeId: number
   text: string
