@@ -8,4 +8,5 @@ type Appeal struct {
 	ThemeID    int    `json:"themeId"`
 	SubthemeID int    `json:"subthemeId"`
 	Text       string `json:"text"`
+	Status     string `json:"status"` // "active" | "closed"
 }

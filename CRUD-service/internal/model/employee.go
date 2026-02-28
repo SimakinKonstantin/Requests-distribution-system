@@ -7,4 +7,5 @@ type Employee struct {
 	Surname string `json:"surname"`
 	Limit   int    `json:"limit"`
 	TeamID  int    `json:"teamId"`
+	Email   string `json:"email"`
 }

@@ -15,6 +15,7 @@ type employeeDB struct {
 	Surname string `db:"surname"`
 	Limit   int    `db:"limit"`
 	TeamID  int    `db:"team_id"`
+	Email   string `db:"email"`
 }
 
 func toEmployeeDB(e model.Employee) employeeDB {
@@ -24,6 +25,7 @@ func toEmployeeDB(e model.Employee) employeeDB {
 		Surname: e.Surname,
 		Limit:   e.Limit,
 		TeamID:  e.TeamID,
+		Email:   e.Email,
 	}
 }
 
@@ -34,6 +36,7 @@ func (e employeeDB) toDomain() model.Employee {
 		Surname: e.Surname,
 		Limit:   e.Limit,
 		TeamID:  e.TeamID,
+		Email:   e.Email,
 	}
 }
 
@@ -57,7 +60,7 @@ func NewEmployeeRepository(db *sqlx.DB) EmployeeRepository {
 
 func (r *employeeRepo) GetAll() ([]model.Employee, error) {
 	var rows []employeeDB
-	if err := r.db.Select(&rows, `SELECT id, name, surname, "limit", team_id FROM employees`); err != nil {
+	if err := r.db.Select(&rows, `SELECT id, name, surname, "limit", team_id, email FROM employees`); err != nil {
 		return nil, fmt.Errorf("employeeRepo.GetAll: %w", err)
 	}
 
@@ -70,7 +73,7 @@ func (r *employeeRepo) GetAll() ([]model.Employee, error) {
 
 func (r *employeeRepo) GetByID(id int) (model.Employee, error) {
 	var row employeeDB
-	err := r.db.Get(&row, `SELECT id, name, surname, "limit", team_id FROM employees WHERE id = $1`, id)
+	err := r.db.Get(&row, `SELECT id, name, surname, "limit", team_id, email FROM employees WHERE id = $1`, id)
 	if err != nil {
 		return model.Employee{}, fmt.Errorf("employeeRepo.GetByID: %w", wrapNotFound(err))
 	}
@@ -80,8 +83,8 @@ func (r *employeeRepo) GetByID(id int) (model.Employee, error) {
 func (r *employeeRepo) Create(e model.Employee) (model.Employee, error) {
 	row := toEmployeeDB(e)
 	err := r.db.QueryRowx(
-		`INSERT INTO employees (name, surname, "limit", team_id) VALUES ($1, $2, $3, $4) RETURNING id`,
-		row.Name, row.Surname, row.Limit, row.TeamID,
+		`INSERT INTO employees (name, surname, "limit", team_id, email) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		row.Name, row.Surname, row.Limit, row.TeamID, row.Email,
 	).Scan(&row.ID)
 	if err != nil {
 		return model.Employee{}, fmt.Errorf("employeeRepo.Create: %w", err)
@@ -93,8 +96,8 @@ func (r *employeeRepo) Update(id int, e model.Employee) (model.Employee, error) 
 	row := toEmployeeDB(e)
 	row.ID = id
 	res, err := r.db.Exec(
-		`UPDATE employees SET name=$1, surname=$2, "limit"=$3, team_id=$4 WHERE id=$5`,
-		row.Name, row.Surname, row.Limit, row.TeamID, row.ID,
+		`UPDATE employees SET name=$1, surname=$2, "limit"=$3, team_id=$4, email=$5 WHERE id=$6`,
+		row.Name, row.Surname, row.Limit, row.TeamID, row.Email, row.ID,
 	)
 	if err != nil {
 		return model.Employee{}, fmt.Errorf("employeeRepo.Update: %w", err)

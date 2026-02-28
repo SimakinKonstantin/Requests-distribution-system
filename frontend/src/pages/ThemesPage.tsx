@@ -1,27 +1,25 @@
 import { useState } from 'react'
-import { employeeApi } from '../api'
+import { themeApi } from '../api'
 import { useCrud } from '../hooks/useCrud'
 import Modal from '../components/Modal'
-import type { Employee } from '../types'
+import type { Theme } from '../types'
 
-type Form = Omit<Employee, 'id'>
-const empty: Form = { name: '', surname: '', limit: 0, teamId: 0, email: '' }
+type Form = Omit<Theme, 'id'>
+const empty: Form = { name: '' }
 
-export default function EmployeesPage() {
-  const { items, loading, error, create, update, remove } = useCrud<Employee, Form>(employeeApi)
+export default function ThemesPage() {
+  const { items, loading, error, create, update, remove } = useCrud<Theme, Form>(themeApi)
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
-  const [editing, setEditing] = useState<Employee | null>(null)
+  const [editing, setEditing] = useState<Theme | null>(null)
   const [form, setForm] = useState<Form>(empty)
 
   const openCreate = () => { setForm(empty); setModal('create') }
-  const openEdit = (item: Employee) => {
+  const openEdit = (item: Theme) => {
     setEditing(item)
-    setForm({ name: item.name, surname: item.surname, limit: item.limit, teamId: item.teamId, email: item.email })
+    setForm({ name: item.name })
     setModal('edit')
   }
   const close = () => { setModal(null); setEditing(null) }
-
-  const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,7 +31,7 @@ export default function EmployeesPage() {
   return (
     <div style={page}>
       <div style={titleRow}>
-        <h2 style={{ margin: 0 }}>Сотрудники</h2>
+        <h2 style={{ margin: 0 }}>Темы</h2>
         <button style={btnPrimary} onClick={openCreate}>+ Добавить</button>
       </div>
 
@@ -42,17 +40,13 @@ export default function EmployeesPage() {
 
       <table style={table}>
         <thead>
-          <tr>{['ID', 'Имя', 'Фамилия', 'Email', 'Лимит', 'ID команды', ''].map(h => <th key={h} style={th}>{h}</th>)}</tr>
+          <tr>{['ID', 'Название', ''].map(h => <th key={h} style={th}>{h}</th>)}</tr>
         </thead>
         <tbody>
           {items.map(item => (
             <tr key={item.id}>
               <td style={td}>{item.id}</td>
               <td style={td}>{item.name}</td>
-              <td style={td}>{item.surname}</td>
-              <td style={td}>{item.email}</td>
-              <td style={td}>{item.limit}</td>
-              <td style={td}>{item.teamId}</td>
               <td style={td}>
                 <button style={btnSm} onClick={() => openEdit(item)}>Изменить</button>
                 <button style={{ ...btnSm, ...btnDanger }} onClick={() => remove(item.id)}>Удалить</button>
@@ -63,27 +57,11 @@ export default function EmployeesPage() {
       </table>
 
       {modal && (
-        <Modal title={modal === 'create' ? 'Новый сотрудник' : 'Редактировать сотрудника'} onClose={close}>
+        <Modal title={modal === 'create' ? 'Новая тема' : 'Редактировать тему'} onClose={close}>
           <form onSubmit={handleSubmit} style={formGrid}>
-            <label style={label}>Имя
+            <label style={label}>Название
               <input style={input} value={form.name}
-                onChange={e => set('name', e.target.value)} required />
-            </label>
-            <label style={label}>Фамилия
-              <input style={input} value={form.surname}
-                onChange={e => set('surname', e.target.value)} required />
-            </label>
-            <label style={label}>Email
-              <input style={input} type="email" value={form.email}
-                onChange={e => set('email', e.target.value)} required />
-            </label>
-            <label style={label}>Лимит
-              <input style={input} type="number" value={form.limit}
-                onChange={e => set('limit', Number(e.target.value))} required />
-            </label>
-            <label style={label}>ID команды
-              <input style={input} type="number" value={form.teamId}
-                onChange={e => set('teamId', Number(e.target.value))} required />
+                onChange={e => setForm({ name: e.target.value })} required />
             </label>
             <button style={{ ...btnPrimary, marginTop: 8 }} type="submit">Сохранить</button>
           </form>

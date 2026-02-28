@@ -1,14 +1,19 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
 import EmployeesPage from './pages/EmployeesPage'
+import ClientsPage from './pages/ClientsPage'
+import ThemesPage from './pages/ThemesPage'
 import AppealsPage from './pages/AppealsPage'
+import AppealDetailPage from './pages/AppealDetailPage'
 import SlotsPage from './pages/SlotsPage'
 import SubthemesPage from './pages/SubthemesPage'
 
 const navItems = [
   { to: '/employees', label: '👤 Сотрудники' },
+  { to: '/clients',   label: '🙋 Клиенты' },
+  { to: '/themes',    label: '🗂️ Темы' },
+  { to: '/subthemes', label: '🏷️ Подтемы' },
   { to: '/appeals',   label: '📋 Обращения' },
   { to: '/slots',     label: '🔲 Слоты' },
-  { to: '/subthemes', label: '🏷️ Подтемы' },
 ]
 
 export default function App() {
@@ -29,7 +34,10 @@ export default function App() {
         <Routes>
           <Route path="/" element={<EmployeesPage />} />
           <Route path="/employees" element={<EmployeesPage />} />
-          <Route path="/appeals"   element={<AppealsPage />} />
+          <Route path="/clients"   element={<ClientsPage />} />
+          <Route path="/themes"    element={<ThemesPage />} />
+          <Route path="/appeals"       element={<AppealsPage />} />
+          <Route path="/appeals/:id"   element={<AppealDetailPage />} />
           <Route path="/slots"     element={<SlotsPage />} />
           <Route path="/subthemes" element={<SubthemesPage />} />
         </Routes>

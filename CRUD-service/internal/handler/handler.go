@@ -18,6 +18,8 @@ type Handler struct {
 	slots     service.SlotService
 	appeals   service.AppealService
 	subthemes service.SubthemeService
+	clients   service.ClientService
+	themes    service.ThemeService
 }
 
 // New returns a new Handler.
@@ -26,12 +28,16 @@ func New(
 	slots service.SlotService,
 	appeals service.AppealService,
 	subthemes service.SubthemeService,
+	clients service.ClientService,
+	themes service.ThemeService,
 ) *Handler {
 	return &Handler{
 		employees: employees,
 		slots:     slots,
 		appeals:   appeals,
 		subthemes: subthemes,
+		clients:   clients,
+		themes:    themes,
 	}
 }
 
@@ -50,6 +56,12 @@ func (h *Handler) InitRoutes() http.Handler {
 
 	mux.HandleFunc("/subthemes", h.subthemesCollection)
 	mux.HandleFunc("/subthemes/", h.subthemesResource)
+
+	mux.HandleFunc("/clients", h.clientsCollection)
+	mux.HandleFunc("/clients/", h.clientsResource)
+
+	mux.HandleFunc("/themes", h.themesCollection)
+	mux.HandleFunc("/themes/", h.themesResource)
 
 	return corsMiddleware(mux)
 }
@@ -254,6 +266,27 @@ func (h *Handler) appealsCollection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) appealsResource(w http.ResponseWriter, r *http.Request) {
+	// POST /appeals/:id/close
+	if strings.HasSuffix(r.URL.Path, "/close") {
+		idStr := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/appeals/"), "/close")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		closed, err := h.appeals.Close(id)
+		if err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, closed)
+		return
+	}
+
 	id, ok := parseID(w, r, "/appeals/")
 	if !ok {
 		return
@@ -344,6 +377,134 @@ func (h *Handler) subthemesResource(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, updated)
 	case http.MethodDelete:
 		if err := h.subthemes.Delete(id); err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// ─── Client ───────────────────────────────────────────────────────────────────
+
+func (h *Handler) clientsCollection(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		items, err := h.clients.GetAll()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPost:
+		var c model.Client
+		if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		created, err := h.clients.Create(c)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusCreated, created)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *Handler) clientsResource(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r, "/clients/")
+	if !ok {
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		item, err := h.clients.GetByID(id)
+		if err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	case http.MethodPut:
+		var c model.Client
+		if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		updated, err := h.clients.Update(id, c)
+		if err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, updated)
+	case http.MethodDelete:
+		if err := h.clients.Delete(id); err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// ─── Theme ────────────────────────────────────────────────────────────────────
+
+func (h *Handler) themesCollection(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		items, err := h.themes.GetAll()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPost:
+		var t model.Theme
+		if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		created, err := h.themes.Create(t)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusCreated, created)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *Handler) themesResource(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r, "/themes/")
+	if !ok {
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		item, err := h.themes.GetByID(id)
+		if err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	case http.MethodPut:
+		var t model.Theme
+		if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		updated, err := h.themes.Update(id, t)
+		if err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, updated)
+	case http.MethodDelete:
+		if err := h.themes.Delete(id); err != nil {
 			notFoundOrInternal(w, err)
 			return
 		}

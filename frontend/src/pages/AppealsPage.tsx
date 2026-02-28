@@ -1,91 +1,238 @@
-import { useState } from 'react'
-import { appealApi } from '../api'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { appealApi, clientApi, employeeApi, subthemeApi, themeApi } from '../api'
 import { useCrud } from '../hooks/useCrud'
+import { usePolling } from '../hooks/usePolling'
 import Modal from '../components/Modal'
-import type { Appeal } from '../types'
+import type { Appeal, Client, Employee, Subtheme, Theme } from '../types'
 
-type Form = Omit<Appeal, 'id'>
-const empty: Form = { clientId: 0, employeeId: 0, themeId: 0, subthemeId: 0, text: '' }
+// status not set on create -- backend defaults to 'active'
+type CreateForm = Omit<Appeal, 'id' | 'employeeId' | 'status'>
+const emptyCreate: CreateForm = { clientId: 0, themeId: 0, subthemeId: 0, text: '' }
+type EditForm = Omit<Appeal, 'id'>
+
+const POLL_MS = 3000
 
 export default function AppealsPage() {
-  const { items, loading, error, create, update, remove } = useCrud<Appeal, Form>(appealApi)
-  const [modal, setModal] = useState<'create' | 'edit' | null>(null)
-  const [editing, setEditing] = useState<Appeal | null>(null)
-  const [form, setForm] = useState<Form>(empty)
+  const navigate = useNavigate()
+  const { items, loading, error, create, update, remove, reload } =
+    useCrud<Appeal, EditForm>(appealApi)
 
-  const openCreate = () => { setForm(empty); setModal('create') }
+  // Short polling -- refresh list every 3 s
+  usePolling(reload, POLL_MS)
+
+  const [clients, setClients] = useState<Client[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [themes, setThemes] = useState<Theme[]>([])
+  const [subthemes, setSubthemes] = useState<Subtheme[]>([])
+
+  useEffect(() => {
+    clientApi.getAll().then(setClients).catch(() => {})
+    employeeApi.getAll().then(setEmployees).catch(() => {})
+    themeApi.getAll().then(setThemes).catch(() => {})
+    subthemeApi.getAll().then(setSubthemes).catch(() => {})
+  }, [])
+
+  // Create
+  const [createModal, setCreateModal] = useState(false)
+  const [createForm, setCreateForm] = useState<CreateForm>(emptyCreate)
+  const openCreate = () => { setCreateForm(emptyCreate); setCreateModal(true) }
+  const closeCreate = () => setCreateModal(false)
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await create({ ...createForm, employeeId: 0, status: 'active' })
+    closeCreate()
+  }
+
+  // Edit
+  const [editModal, setEditModal] = useState(false)
+  const [editing, setEditing] = useState<Appeal | null>(null)
+  const [editForm, setEditForm] = useState<EditForm>({
+    clientId: 0, employeeId: 0, themeId: 0, subthemeId: 0, text: '', status: 'active',
+  })
   const openEdit = (item: Appeal) => {
     setEditing(item)
-    setForm({ clientId: item.clientId, employeeId: item.employeeId, themeId: item.themeId, subthemeId: item.subthemeId, text: item.text })
-    setModal('edit')
+    setEditForm({
+      clientId: item.clientId, employeeId: item.employeeId,
+      themeId: item.themeId, subthemeId: item.subthemeId,
+      text: item.text, status: item.status,
+    })
+    setEditModal(true)
   }
-  const close = () => { setModal(null); setEditing(null) }
-
-  const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm(f => ({ ...f, [k]: v }))
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const closeEdit = () => { setEditModal(false); setEditing(null) }
+  const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (modal === 'create') await create(form)
-    else if (editing) await update(editing.id, form)
-    close()
+    if (editing) await update(editing.id, editForm)
+    closeEdit()
   }
+
+  // Filter by client
+  const [filterClientId, setFilterClientId] = useState<number>(0)
+
+  const setC = <K extends keyof CreateForm>(k: K, v: CreateForm[K]) =>
+    setCreateForm(f => ({ ...f, [k]: v }))
+  const setE = <K extends keyof EditForm>(k: K, v: EditForm[K]) =>
+    setEditForm(f => ({ ...f, [k]: v }))
+
+  const clientEmail = (id: number) =>
+    clients.find(c => c.id === id)?.email ?? String(id)
+  const employeeEmail = (id: number) =>
+    employees.find(e => e.id === id)?.email ?? String(id)
+  const themeName = (id: number) =>
+    themes.find(t => t.id === id)?.name ?? String(id)
+  const subthemeName = (id: number) =>
+    subthemes.find(s => s.id === id)?.name ?? String(id)
 
   return (
     <div style={page}>
       <div style={titleRow}>
-        <h2 style={{ margin: 0 }}>Обращения</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h2 style={{ margin: 0 }}>Обращения</h2>
+          <span style={pollBadge} title="Short polling active">
+            {'\u21bb'} {POLL_MS / 1000} с
+          </span>
+        </div>
         <button style={btnPrimary} onClick={openCreate}>+ Добавить</button>
       </div>
 
-      {loading && <p>Загрузка…</p>}
+      {/* Filter bar */}
+      <div style={filterBar}>
+        <label style={filterLabel}>
+          Фильтр по клиенту:
+          <select
+            style={filterSelect}
+            value={filterClientId}
+            onChange={e => setFilterClientId(Number(e.target.value))}
+          >
+            <option value={0}>Все клиенты</option>
+            {clients.map(c => (
+              <option key={c.id} value={c.id}>{c.email}</option>
+            ))}
+          </select>
+        </label>
+        {filterClientId !== 0 && (
+          <button style={clearBtn} onClick={() => setFilterClientId(0)}>
+            Сбросить
+          </button>
+        )}
+      </div>
+
+      {loading && <p>Загрузка...</p>}
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
       <table style={table}>
         <thead>
-          <tr>{['ID', 'ID клиента', 'ID сотрудника', 'ID темы', 'ID подтемы', 'Текст', ''].map(h => <th key={h} style={th}>{h}</th>)}</tr>
+          <tr>
+            {['ID', 'Статус', 'Клиент', 'Сотрудник', 'Тема', 'Текст', ''].map(h =>
+              <th key={h} style={th}>{h}</th>
+            )}
+          </tr>
         </thead>
         <tbody>
-          {items.map(item => (
+          {items.filter(item => filterClientId === 0 || item.clientId === filterClientId).map(item => (
             <tr key={item.id}>
               <td style={td}>{item.id}</td>
-              <td style={td}>{item.clientId}</td>
-              <td style={td}>{item.employeeId}</td>
-              <td style={td}>{item.themeId}</td>
-              <td style={td}>{item.subthemeId}</td>
+              <td style={td}>
+                <span style={item.status === 'closed' ? closedBadge : activeBadge}>
+                  {item.status === 'closed' ? 'закрыто' : 'активно'}
+                </span>
+              </td>
+              <td style={td}>{clientEmail(item.clientId)}</td>
+              <td style={td}>
+                {item.employeeId
+                  ? <span style={assignedBadge}>{employeeEmail(item.employeeId)}</span>
+                  : <span style={pendingBadge}>не назначен</span>}
+              </td>
+              <td style={td}>{themeName(item.themeId)}</td>
               <td style={td} title={item.text}>
-                {item.text.length > 40 ? item.text.slice(0, 40) + '…' : item.text}
+                {item.text.length > 35 ? item.text.slice(0, 35) + '...' : item.text}
               </td>
               <td style={td}>
+                <button style={btnSm} onClick={() => navigate('/appeals/' + String(item.id))}>
+                  Детали
+                </button>
                 <button style={btnSm} onClick={() => openEdit(item)}>Изменить</button>
-                <button style={{ ...btnSm, ...btnDanger }} onClick={() => remove(item.id)}>Удалить</button>
+                <button style={{ ...btnSm, ...btnDanger }} onClick={() => remove(item.id)}>
+                  Удалить
+                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {modal && (
-        <Modal title={modal === 'create' ? 'Новое обращение' : 'Редактировать обращение'} onClose={close}>
-          <form onSubmit={handleSubmit} style={formGrid}>
-            <label style={label}>ID клиента
-              <input style={input} type="number" value={form.clientId}
-                onChange={e => set('clientId', Number(e.target.value))} required />
+      {createModal && (
+        <Modal title="Новое обращение" onClose={closeCreate}>
+          <form onSubmit={handleCreate} style={formGrid}>
+            <label style={labelS}>Клиент (email)
+              <select style={input} value={createForm.clientId}
+                onChange={e => setC('clientId', Number(e.target.value))} required>
+                <option value={0} disabled>- выберите клиента -</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.email}</option>)}
+              </select>
             </label>
-            <label style={label}>ID сотрудника
-              <input style={input} type="number" value={form.employeeId}
-                onChange={e => set('employeeId', Number(e.target.value))} />
+            <label style={labelS}>Тема
+              <select style={input} value={createForm.themeId}
+                onChange={e => setC('themeId', Number(e.target.value))} required>
+                <option value={0} disabled>- выберите тему -</option>
+                {themes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
             </label>
-            <label style={label}>ID темы
-              <input style={input} type="number" value={form.themeId}
-                onChange={e => set('themeId', Number(e.target.value))} required />
+            <label style={labelS}>Подтема
+              <select style={input} value={createForm.subthemeId}
+                onChange={e => setC('subthemeId', Number(e.target.value))} required>
+                <option value={0} disabled>- выберите подтему -</option>
+                {subthemes.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
             </label>
-            <label style={label}>ID подтемы
-              <input style={input} type="number" value={form.subthemeId}
-                onChange={e => set('subthemeId', Number(e.target.value))} required />
+            <label style={labelS}>Текст
+              <textarea style={{ ...input, minHeight: 80, resize: 'vertical' }}
+                value={createForm.text}
+                onChange={e => setC('text', e.target.value)} required />
             </label>
-            <label style={label}>Текст
-              <textarea style={{ ...input, minHeight: 80, resize: 'vertical' }} value={form.text}
-                onChange={e => set('text', e.target.value)} required />
+            <p style={hint}>Сотрудник будет назначен системой автоматически.</p>
+            <button style={{ ...btnPrimary, marginTop: 4 }} type="submit">Сохранить</button>
+          </form>
+        </Modal>
+      )}
+
+      {editModal && editing && (
+        <Modal title="Редактировать обращение" onClose={closeEdit}>
+          <form onSubmit={handleEdit} style={formGrid}>
+            <label style={labelS}>Клиент (email)
+              <select style={input} value={editForm.clientId}
+                onChange={e => setE('clientId', Number(e.target.value))} required>
+                <option value={0} disabled>- выберите клиента -</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.email}</option>)}
+              </select>
+            </label>
+            <label style={labelS}>Сотрудник (email)
+              <select style={input} value={editForm.employeeId}
+                onChange={e => setE('employeeId', Number(e.target.value))}>
+                <option value={0}>- не назначен -</option>
+                {employees.map(emp =>
+                  <option key={emp.id} value={emp.id}>{emp.email}</option>
+                )}
+              </select>
+            </label>
+            <label style={labelS}>Тема
+              <select style={input} value={editForm.themeId}
+                onChange={e => setE('themeId', Number(e.target.value))} required>
+                <option value={0} disabled>- выберите тему -</option>
+                {themes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </label>
+            <label style={labelS}>Подтема
+              <select style={input} value={editForm.subthemeId}
+                onChange={e => setE('subthemeId', Number(e.target.value))} required>
+                <option value={0} disabled>- выберите подтему -</option>
+                {subthemes.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </label>
+            <label style={labelS}>Текст
+              <textarea style={{ ...input, minHeight: 80, resize: 'vertical' }}
+                value={editForm.text}
+                onChange={e => setE('text', e.target.value)} required />
             </label>
             <button style={{ ...btnPrimary, marginTop: 8 }} type="submit">Сохранить</button>
           </form>
@@ -96,13 +243,71 @@ export default function AppealsPage() {
 }
 
 const page: React.CSSProperties = { padding: '0 4px' }
-const titleRow: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }
-const table: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,.07)' }
-const th: React.CSSProperties = { textAlign: 'left', padding: '12px 16px', background: '#f5f6fa', fontWeight: 600, color: '#555', fontSize: 13 }
-const td: React.CSSProperties = { padding: '11px 16px', borderTop: '1px solid #f0f0f0', fontSize: 14 }
-const btnPrimary: React.CSSProperties = { background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', cursor: 'pointer', fontWeight: 600, fontSize: 14 }
-const btnSm: React.CSSProperties = { marginRight: 6, padding: '5px 12px', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 13, background: '#e8eaff', color: '#4f6ef7', fontWeight: 500 }
+const titleRow: React.CSSProperties = {
+  display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20,
+}
+const table: React.CSSProperties = {
+  width: '100%', borderCollapse: 'collapse', background: '#fff',
+  borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,.07)',
+}
+const th: React.CSSProperties = {
+  textAlign: 'left', padding: '12px 16px', background: '#f5f6fa',
+  fontWeight: 600, color: '#555', fontSize: 13,
+}
+const td: React.CSSProperties = {
+  padding: '11px 16px', borderTop: '1px solid #f0f0f0', fontSize: 14,
+}
+const btnPrimary: React.CSSProperties = {
+  background: '#4f6ef7', color: '#fff', border: 'none',
+  borderRadius: 6, padding: '8px 18px', cursor: 'pointer', fontWeight: 600, fontSize: 14,
+}
+const btnSm: React.CSSProperties = {
+  marginRight: 6, padding: '5px 10px', border: 'none',
+  borderRadius: 5, cursor: 'pointer', fontSize: 12,
+  background: '#e8eaff', color: '#4f6ef7', fontWeight: 500,
+}
 const btnDanger: React.CSSProperties = { background: '#fff0f0', color: '#e53e3e' }
 const formGrid: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12 }
-const label: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5, fontSize: 14, fontWeight: 500, color: '#444' }
-const input: React.CSSProperties = { padding: '8px 12px', border: '1px solid #ddd', borderRadius: 6, fontSize: 14, outline: 'none' }
+const labelS: React.CSSProperties = {
+  display: 'flex', flexDirection: 'column', gap: 5, fontSize: 14, fontWeight: 500, color: '#444',
+}
+const input: React.CSSProperties = {
+  padding: '8px 12px', border: '1px solid #ddd', borderRadius: 6, fontSize: 14, outline: 'none',
+}
+const hint: React.CSSProperties = { margin: 0, fontSize: 12, color: '#888', fontStyle: 'italic' }
+const pollBadge: React.CSSProperties = {
+  fontSize: 12, color: '#7c8cf8', background: '#eef0ff',
+  borderRadius: 4, padding: '2px 8px', fontWeight: 500,
+}
+const activeBadge: React.CSSProperties = {
+  background: '#e6ffed', color: '#276749',
+  borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600,
+}
+const closedBadge: React.CSSProperties = {
+  background: '#f0f0f0', color: '#666',
+  borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600,
+}
+const assignedBadge: React.CSSProperties = {
+  background: '#e6ffed', color: '#276749',
+  borderRadius: 4, padding: '2px 8px', fontSize: 13, fontWeight: 500,
+}
+const pendingBadge: React.CSSProperties = {
+  background: '#fff8e1', color: '#92600a',
+  borderRadius: 4, padding: '2px 8px', fontSize: 13, fontWeight: 500,
+}
+const filterBar: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16,
+  background: '#fff', padding: '12px 16px', borderRadius: 8,
+  boxShadow: '0 1px 4px rgba(0,0,0,.05)',
+}
+const filterLabel: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 500, color: '#444',
+}
+const filterSelect: React.CSSProperties = {
+  padding: '7px 12px', border: '1px solid #ddd', borderRadius: 6,
+  fontSize: 14, outline: 'none', minWidth: 220, background: '#fff',
+}
+const clearBtn: React.CSSProperties = {
+  padding: '7px 14px', border: '1px solid #e0e0e0', borderRadius: 6,
+  cursor: 'pointer', fontSize: 13, background: '#f5f5f5', color: '#555',
+}

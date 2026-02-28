@@ -12,6 +12,7 @@ type AppealService interface {
 	Create(a model.Appeal) (model.Appeal, error)
 	Update(id int, a model.Appeal) (model.Appeal, error)
 	Delete(id int) error
+	Close(id int) (model.Appeal, error)
 }
 
 type appealService struct {
@@ -41,4 +42,8 @@ func (s *appealService) Update(id int, a model.Appeal) (model.Appeal, error) {
 
 func (s *appealService) Delete(id int) error {
 	return s.repo.Delete(id)
+}
+
+func (s *appealService) Close(id int) (model.Appeal, error) {
+	return s.repo.Close(id)
 }

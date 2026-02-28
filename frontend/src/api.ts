@@ -1,4 +1,4 @@
-import type { Appeal, Employee, Slot, Subtheme } from './types'
+import type { Appeal, Client, Employee, Slot, Subtheme, Theme } from './types'
 
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -23,6 +23,28 @@ export const employeeApi = {
   delete: (id: number) => request<void>(`/employees/${id}`, { method: 'DELETE' }),
 }
 
+// ── Clients ────────────────────────────────────────────────────────────────
+export const clientApi = {
+  getAll: () => request<Client[]>('/clients'),
+  getById: (id: number) => request<Client>(`/clients/${id}`),
+  create: (data: Omit<Client, 'id'>) =>
+    request<Client>('/clients', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: Omit<Client, 'id'>) =>
+    request<Client>(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: number) => request<void>(`/clients/${id}`, { method: 'DELETE' }),
+}
+
+// ── Themes ─────────────────────────────────────────────────────────────────
+export const themeApi = {
+  getAll: () => request<Theme[]>('/themes'),
+  getById: (id: number) => request<Theme>(`/themes/${id}`),
+  create: (data: Omit<Theme, 'id'>) =>
+    request<Theme>('/themes', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: Omit<Theme, 'id'>) =>
+    request<Theme>(`/themes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: number) => request<void>(`/themes/${id}`, { method: 'DELETE' }),
+}
+
 // ── Slots ──────────────────────────────────────────────────────────────────
 export const slotApi = {
   getAll: () => request<Slot[]>('/slots'),
@@ -43,6 +65,7 @@ export const appealApi = {
   update: (id: number, data: Omit<Appeal, 'id'>) =>
     request<Appeal>(`/appeals/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: number) => request<void>(`/appeals/${id}`, { method: 'DELETE' }),
+  close: (id: number) => request<Appeal>(`/appeals/${id}/close`, { method: 'POST' }),
 }
 
 // ── Subthemes ──────────────────────────────────────────────────────────────

@@ -4,6 +4,22 @@ export interface Employee {
   surname: string
   limit: number
   teamId: number
+  email: string
+}
+
+export interface Client {
+  id: number
+  email: string
+}
+
+export interface Theme {
+  id: number
+  name: string
+}
+
+export interface Subtheme {
+  id: number
+  name: string
 }
 
 export interface Slot {
@@ -19,9 +35,5 @@ export interface Appeal {
   themeId: number
   subthemeId: number
   text: string
-}
-
-export interface Subtheme {
-  id: number
-  name: string
+  status: 'active' | 'closed'
 }

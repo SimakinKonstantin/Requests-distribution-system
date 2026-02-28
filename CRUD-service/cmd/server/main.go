@@ -26,15 +26,19 @@ func main() {
 	slotRepo := repository.NewSlotRepository(database)
 	appealRepo := repository.NewAppealRepository(database)
 	subthemeRepo := repository.NewSubthemeRepository(database)
+	clientRepo := repository.NewClientRepository(database)
+	themeRepo := repository.NewThemeRepository(database)
 
 	// Services
 	employeeSvc := service.NewEmployeeService(employeeRepo)
 	slotSvc := service.NewSlotService(slotRepo)
 	appealSvc := service.NewAppealService(appealRepo)
 	subthemeSvc := service.NewSubthemeService(subthemeRepo)
+	clientSvc := service.NewClientService(clientRepo)
+	themeSvc := service.NewThemeService(themeRepo)
 
 	// Handler & routes
-	h := handler.New(employeeSvc, slotSvc, appealSvc, subthemeSvc)
+	h := handler.New(employeeSvc, slotSvc, appealSvc, subthemeSvc, clientSvc, themeSvc)
 	router := h.InitRoutes()
 
 	log.Printf("Starting server on %s", cfg.ServerAddr)
