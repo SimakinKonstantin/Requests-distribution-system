@@ -1,0 +1,79 @@
+# ──────────────────────────────────────────────
+# Go
+# ──────────────────────────────────────────────
+
+# Compiled binaries and build output
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test binary output
+*.test
+
+# Go coverage output
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency vendor directory (uncomment if not vendoring)
+# vendor/
+
+# ──────────────────────────────────────────────
+# IDE / Editors
+# ──────────────────────────────────────────────
+
+# JetBrains (GoLand, IntelliJ, etc.)
+.idea/
+*.iml
+
+# VS Code / Cursor
+.vscode/
+*.code-workspace
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+
+# ──────────────────────────────────────────────
+# OS
+# ──────────────────────────────────────────────
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ──────────────────────────────────────────────
+# Environment & Secrets
+# ──────────────────────────────────────────────
+
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ──────────────────────────────────────────────
+# Logs & Temporary files
+# ──────────────────────────────────────────────
+
+*.log
+tmp/
+temp/
