@@ -9,6 +9,7 @@ import (
 	"crud-service/internal/handler"
 	"crud-service/internal/repository"
 	"crud-service/internal/service"
+	"utf8"
 )
 
 func main() {
@@ -45,4 +46,13 @@ func main() {
 	if err = http.ListenAndServe(cfg.ServerAddr, router); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+
+func ValidateSubtheme(subthemeName string, themeId) error {
+	if (utf8.CountRuneInS
+
+
+
+
 }
