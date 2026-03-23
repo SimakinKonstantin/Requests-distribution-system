@@ -77,3 +77,5 @@ $RECYCLE.BIN/
 *.log
 tmp/
 temp/
+dummt_for_tests/
+test2/

@@ -20,6 +20,7 @@ type Handler struct {
 	subthemes service.SubthemeService
 	clients   service.ClientService
 	themes    service.ThemeService
+	teams     service.TeamService
 }
 
 // New returns a new Handler.
@@ -63,6 +64,9 @@ func (h *Handler) InitRoutes() http.Handler {
 	mux.HandleFunc("/themes", h.themesCollection)
 	mux.HandleFunc("/themes/", h.themesResource)
 
+	mux.HandleFunc("/teams", h.teamsCollection)
+	mux.HandleFunc("/teams/", h.teamsResource)
+
 	return corsMiddleware(mux)
 }
 
@@ -83,7 +87,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
+// ─── helpers ────────────────────────────────────────────────────────────────────
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -505,6 +509,69 @@ func (h *Handler) themesResource(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, updated)
 	case http.MethodDelete:
 		if err := h.themes.Delete(id); err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// ///////////////////////////////////////////////// Team ////////////////////////////////////////////////////////////////////////////
+func (h *Handler) teamsCollection(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		items, err := h.teams.GetAll()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPost:
+		var t model.Team
+		if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		created, err := h.teams.Create(t)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusCreated, created)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *Handler) teamsResource(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r, "/teams/")
+	if !ok {
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		item, err := h.teams.GetByID(id)
+		if err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	case http.MethodPut:
+		var t model.Team
+		if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		updated, err := h.teams.Update(id, t)
+		if err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, updated)
+	case http.MethodDelete:
+		if err := h.teams.Delete(id); err != nil {
 			notFoundOrInternal(w, err)
 			return
 		}

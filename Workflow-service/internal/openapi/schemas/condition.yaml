@@ -1,0 +1,12 @@
+type: object
+required: [operator, predicates]
+properties:
+  operator:
+    type: string
+    enum:
+      - or
+      - and
+  predicates:
+    type: array
+    items:
+      $ref: "./predicate.yaml"

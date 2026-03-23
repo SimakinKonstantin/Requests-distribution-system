@@ -1,0 +1,13 @@
+type: object
+required: [url, size, fileKey, fileName, mimeType]
+properties:
+  url:
+    type: string
+  size:
+    type: integer
+  fileKey:
+    type: string
+  fileName:
+    type: string
+  mimeType:
+    type: string

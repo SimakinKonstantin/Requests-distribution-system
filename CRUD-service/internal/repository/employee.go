@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/jmoiron/sqlx"
 
@@ -16,6 +17,7 @@ type employeeDB struct {
 	Limit   int    `db:"limit"`
 	TeamID  int    `db:"team_id"`
 	Email   string `db:"email"`
+	TeamIDs []int
 }
 
 func toEmployeeDB(e model.Employee) employeeDB {
@@ -26,6 +28,7 @@ func toEmployeeDB(e model.Employee) employeeDB {
 		Limit:   e.Limit,
 		TeamID:  e.TeamID,
 		Email:   e.Email,
+		TeamIDs: e.TeamIDs,
 	}
 }
 
@@ -37,6 +40,7 @@ func (e employeeDB) toDomain() model.Employee {
 		Limit:   e.Limit,
 		TeamID:  e.TeamID,
 		Email:   e.Email,
+		TeamIDs: e.TeamIDs,
 	}
 }
 
@@ -66,7 +70,11 @@ func (r *employeeRepo) GetAll() ([]model.Employee, error) {
 
 	result := make([]model.Employee, len(rows))
 	for i, row := range rows {
-		result[i] = row.toDomain()
+		filledRow, err := r.fillTeams(row)
+		if err != nil {
+			return nil, fmt.Errorf("employeeRepo.GetAll fillTeams: %w", err)
+		}
+		result[i] = filledRow.toDomain()
 	}
 	return result, nil
 }
@@ -77,35 +85,120 @@ func (r *employeeRepo) GetByID(id int) (model.Employee, error) {
 	if err != nil {
 		return model.Employee{}, fmt.Errorf("employeeRepo.GetByID: %w", wrapNotFound(err))
 	}
-	return row.toDomain(), nil
+
+	filledRow, err := r.fillTeams(row)
+	if err != nil {
+		return model.Employee{}, fmt.Errorf("employeeRepo.GetByID fillTeams: %w", err)
+	}
+
+	return filledRow.toDomain(), nil
 }
 
 func (r *employeeRepo) Create(e model.Employee) (model.Employee, error) {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return model.Employee{}, fmt.Errorf("employeeRepo.Create start transaction: %w", err)
+	}
+
 	row := toEmployeeDB(e)
-	err := r.db.QueryRowx(
+	err = tx.QueryRowx(
 		`INSERT INTO employees (name, surname, "limit", team_id, email) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
 		row.Name, row.Surname, row.Limit, row.TeamID, row.Email,
 	).Scan(&row.ID)
 	if err != nil {
-		return model.Employee{}, fmt.Errorf("employeeRepo.Create: %w", err)
+		rberr := tx.Rollback()
+		return model.Employee{}, fmt.Errorf("employeeRepo.Create: %w, rollback error: %w", err, rberr)
 	}
-	return row.toDomain(), nil
+
+	err = tx.QueryRowx(
+		`INSERT INTO teams_employees (employee_id, team_id) VALUES ($1, $2)`,
+		row.ID, row.TeamID,
+	).Scan(&row.ID)
+	if err != nil {
+		rberr := tx.Rollback()
+		return model.Employee{}, fmt.Errorf("employeeRepo.Create teams_employees: %w, rollback error: %w", err, rberr)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		rberr := tx.Rollback()
+		return model.Employee{}, fmt.Errorf("employeeRepo.Create commit transaction: %w, rollback error: %w", err, rberr)
+	}
+
+	filledRow, err := r.fillTeams(row)
+	if err != nil {
+		return model.Employee{}, fmt.Errorf("employeeRepo.Create fillTeams: %w", err)
+	}
+
+	return filledRow.toDomain(), nil
 }
 
 func (r *employeeRepo) Update(id int, e model.Employee) (model.Employee, error) {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return model.Employee{}, fmt.Errorf("employeeRepo.Update start transaction: %w", err)
+	}
+
 	row := toEmployeeDB(e)
 	row.ID = id
-	res, err := r.db.Exec(
+	_, err = tx.Exec(
 		`UPDATE employees SET name=$1, surname=$2, "limit"=$3, team_id=$4, email=$5 WHERE id=$6`,
 		row.Name, row.Surname, row.Limit, row.TeamID, row.Email, row.ID,
 	)
 	if err != nil {
-		return model.Employee{}, fmt.Errorf("employeeRepo.Update: %w", err)
+		rberr := tx.Rollback()
+		return model.Employee{}, fmt.Errorf("employeeRepo.Update: %w, rollback error: %w", err, rberr)
 	}
-	if err = expectOneRow(res); err != nil {
-		return model.Employee{}, err
+
+	type TeamEmployee struct {
+		TeamID int `db:"team_id"`
 	}
-	return row.toDomain(), nil
+
+	var currentTeams []TeamEmployee
+	err = tx.Select(&currentTeams, `SELECT team_id FROM teams_employees WHERE employee_id = $1`, row.ID)
+	if err != nil {
+		rberr := tx.Rollback()
+		return model.Employee{}, fmt.Errorf("employeeRepo.Update teams_employees: %w, rollback error: %w", err, rberr)
+	}
+
+	for _, currentTeam := range currentTeams {
+		if !slices.Contains(row.TeamIDs, currentTeam.TeamID) {
+			_, err = tx.Exec(
+				`DELETE FROM teams_employees (employee_id, team_id) VALUES ($1, $2)`,
+				row.ID, currentTeam.TeamID,
+			)
+			if err != nil {
+				rberr := tx.Rollback()
+				return model.Employee{}, fmt.Errorf("employeeRepo.Update teams_employees: %w, rollback error: %w", err, rberr)
+			}
+		}
+	}
+
+	for _, newTeam := range row.TeamIDs {
+		if !slices.Contains(currentTeams, TeamEmployee{TeamID: newTeam}) {
+			_, err = tx.Exec(
+				`INSERT INTO teams_employees (employee_id, team_id) VALUES ($1, $2)`,
+				row.ID, newTeam,
+			)
+			if err != nil {
+				rberr := tx.Rollback()
+				return model.Employee{}, fmt.Errorf("employeeRepo.Update teams_employees: %w, rollback error: %w", err, rberr)
+			}
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		rberr := tx.Rollback()
+		return model.Employee{}, fmt.Errorf("employeeRepo.Update commit transaction: %w, rollback error: %w", err, rberr)
+	}
+
+	filledRow, err := r.fillTeams(row)
+	if err != nil {
+		return model.Employee{}, fmt.Errorf("employeeRepo.Update fillTeams: %w", err)
+	}
+
+	return filledRow.toDomain(), nil
 }
 
 func (r *employeeRepo) Delete(id int) error {
@@ -114,4 +207,14 @@ func (r *employeeRepo) Delete(id int) error {
 		return fmt.Errorf("employeeRepo.Delete: %w", err)
 	}
 	return expectOneRow(res)
+}
+
+func (r *employeeRepo) fillTeams(e employeeDB) (employeeDB, error) {
+	var teams []int
+	err := r.db.Select(&teams, `SELECT team_id FROM teams_employees WHERE employee_id = $1`, e.ID)
+	if err != nil {
+		return employeeDB{}, fmt.Errorf("employeeRepo.fillTeams teams_employees: %w", err)
+	}
+	e.TeamIDs = teams
+	return e, nil
 }

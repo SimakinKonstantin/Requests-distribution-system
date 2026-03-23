@@ -10,16 +10,19 @@ import (
 
 // clientDB is the database-level representation of Client.
 type clientDB struct {
-	ID    int    `db:"id"`
-	Email string `db:"email"`
+	ID      int    `db:"id"`
+	Email   string `db:"email"`
+	Name    string `db:"name"`
+	Surname string `db:"surname"`
+	IsVIP   bool   `db:"is_vip"`
 }
 
 func toClientDB(c model.Client) clientDB {
-	return clientDB{ID: c.ID, Email: c.Email}
+	return clientDB{ID: c.ID, Email: c.Email, Name: c.Name, Surname: c.Surname, IsVIP: c.IsVIP}
 }
 
 func (c clientDB) toDomain() model.Client {
-	return model.Client{ID: c.ID, Email: c.Email}
+	return model.Client{ID: c.ID, Email: c.Email, Name: c.Name, Surname: c.Surname, IsVIP: c.IsVIP}
 }
 
 // ClientRepository defines CRUD operations for Client.
@@ -42,7 +45,7 @@ func NewClientRepository(db *sqlx.DB) ClientRepository {
 
 func (r *clientRepo) GetAll() ([]model.Client, error) {
 	var rows []clientDB
-	if err := r.db.Select(&rows, `SELECT id, email FROM clients ORDER BY id`); err != nil {
+	if err := r.db.Select(&rows, `SELECT id, email, name, surname, is_vip FROM clients ORDER BY id`); err != nil {
 		return nil, fmt.Errorf("clientRepo.GetAll: %w", err)
 	}
 	result := make([]model.Client, len(rows))
@@ -54,7 +57,7 @@ func (r *clientRepo) GetAll() ([]model.Client, error) {
 
 func (r *clientRepo) GetByID(id int) (model.Client, error) {
 	var row clientDB
-	if err := r.db.Get(&row, `SELECT id, email FROM clients WHERE id = $1`, id); err != nil {
+	if err := r.db.Get(&row, `SELECT id, email, name, surname, is_vip FROM clients WHERE id = $1`, id); err != nil {
 		return model.Client{}, fmt.Errorf("clientRepo.GetByID: %w", wrapNotFound(err))
 	}
 	return row.toDomain(), nil
@@ -63,8 +66,11 @@ func (r *clientRepo) GetByID(id int) (model.Client, error) {
 func (r *clientRepo) Create(c model.Client) (model.Client, error) {
 	row := toClientDB(c)
 	err := r.db.QueryRowx(
-		`INSERT INTO clients (email) VALUES ($1) RETURNING id`,
+		`INSERT INTO clients (email, name, surname, is_vip) VALUES ($1, $2, $3, $4) RETURNING id`,
 		row.Email,
+		row.Name,
+		row.Surname,
+		row.IsVIP,
 	).Scan(&row.ID)
 	if err != nil {
 		return model.Client{}, fmt.Errorf("clientRepo.Create: %w", err)
@@ -76,8 +82,8 @@ func (r *clientRepo) Update(id int, c model.Client) (model.Client, error) {
 	row := toClientDB(c)
 	row.ID = id
 	res, err := r.db.Exec(
-		`UPDATE clients SET email=$1 WHERE id=$2`,
-		row.Email, row.ID,
+		`UPDATE clients SET email=$1, name=$2, surname=$3, is_vip=$4 WHERE id=$5`,
+		row.Email, row.Name, row.Surname, row.IsVIP, row.ID,
 	)
 	if err != nil {
 		return model.Client{}, fmt.Errorf("clientRepo.Update: %w", err)

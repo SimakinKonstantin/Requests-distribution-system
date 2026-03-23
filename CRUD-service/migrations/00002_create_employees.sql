@@ -1,10 +1,9 @@
 -- +goose Up
 CREATE TABLE IF NOT EXISTS employees (
     id      SERIAL       PRIMARY KEY,
-    name    VARCHAR(255) NOT NULL,
-    surname VARCHAR(255) NOT NULL,
-    "limit" INTEGER      NOT NULL DEFAULT 0,
-    team_id INTEGER      NOT NULL
+    name    TEXT NOT NULL,
+    surname TEXT NOT NULL,
+    "limit" INTEGER      NOT NULL
 );
 
 -- +goose Down

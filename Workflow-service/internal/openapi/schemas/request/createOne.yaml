@@ -1,0 +1,18 @@
+type: object
+required: [name, status, nodes, edges, authorProfileId]
+properties:
+  name:
+    type: string
+    description: Имя воркфлоу
+  status:
+    $ref: "../status.yaml"
+  nodes:
+    type: array
+    items:
+      $ref: "../node.yaml"
+  edges:
+    type: array
+    items:
+      $ref: "../edge.yaml"
+  authorProfileId:
+    type: string

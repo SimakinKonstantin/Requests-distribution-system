@@ -1,0 +1,8 @@
+package: gen
+generate:
+  gorilla-server: true
+  models: true
+  embedded-spec: true
+output: gen/api.gen.go
+output-options:
+  skip-prune: true

@@ -8,4 +8,5 @@ type Employee struct {
 	Limit   int    `json:"limit"`
 	TeamID  int    `json:"teamId"`
 	Email   string `json:"email"`
+	TeamIDs []int  `json:"teamIds"`
 }

@@ -48,7 +48,7 @@ func NewSubthemeRepository(db *sqlx.DB) SubthemeRepository {
 
 func (r *subthemeRepo) GetAll() ([]model.Subtheme, error) {
 	var rows []subthemeDB
-	if err := r.db.Select(&rows, `SELECT id, name FROM subthemes`); err != nil {
+	if err := r.db.Select(&rows, `SELECT id, name, theme_id FROM subthemes`); err != nil {
 		return nil, fmt.Errorf("subthemeRepo.GetAll: %w", err)
 	}
 
@@ -61,7 +61,7 @@ func (r *subthemeRepo) GetAll() ([]model.Subtheme, error) {
 
 func (r *subthemeRepo) GetByID(id int) (model.Subtheme, error) {
 	var row subthemeDB
-	err := r.db.Get(&row, `SELECT id, name FROM subthemes WHERE id = $1`, id)
+	err := r.db.Get(&row, `SELECT id, name, theme_id FROM subthemes WHERE id = $1`, id)
 	if err != nil {
 		return model.Subtheme{}, fmt.Errorf("subthemeRepo.GetByID: %w", wrapNotFound(err))
 	}
@@ -83,7 +83,7 @@ func (r *subthemeRepo) Create(s model.Subtheme) (model.Subtheme, error) {
 func (r *subthemeRepo) Update(id int, s model.Subtheme) (model.Subtheme, error) {
 	row := toSubthemeDB(s)
 	row.ID = id
-	res, err := r.db.Exec(`UPDATE subthemes SET name=$1 WHERE id=$2`, row.Name, row.ID)
+	res, err := r.db.Exec(`UPDATE subthemes SET name=$1, WHERE id=$2`, row.Name, row.ID)
 	if err != nil {
 		return model.Subtheme{}, fmt.Errorf("subthemeRepo.Update: %w", err)
 	}

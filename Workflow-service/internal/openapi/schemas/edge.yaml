@@ -1,0 +1,9 @@
+type: object
+required: [id, source, target]
+properties:
+  id:
+    type: string
+  source:
+    type: string
+  target:
+    type: string

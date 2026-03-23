@@ -9,7 +9,6 @@ import (
 	"crud-service/internal/handler"
 	"crud-service/internal/repository"
 	"crud-service/internal/service"
-	"utf8"
 )
 
 func main() {
@@ -31,7 +30,7 @@ func main() {
 	themeRepo := repository.NewThemeRepository(database)
 
 	// Services
-	employeeSvc := service.NewEmployeeService(employeeRepo)
+	employeeSvc := service.NewEmployeeService(employeeRepo, slotRepo)
 	slotSvc := service.NewSlotService(slotRepo)
 	appealSvc := service.NewAppealService(appealRepo)
 	subthemeSvc := service.NewSubthemeService(subthemeRepo)
@@ -46,13 +45,4 @@ func main() {
 	if err = http.ListenAndServe(cfg.ServerAddr, router); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
-}
-
-
-func ValidateSubtheme(subthemeName string, themeId) error {
-	if (utf8.CountRuneInS
-
-
-
-
 }

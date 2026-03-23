@@ -1,12 +1,12 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE clients (
+CREATE TABLE IF NOT EXISTS clients (
     id    SERIAL PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE
+    email TEXT NOT NULL UNIQUE
 );
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE clients;
+DROP TABLE IF EXISTS clients;
 -- +goose StatementEnd

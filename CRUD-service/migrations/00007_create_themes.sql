@@ -1,12 +1,12 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE themes (
+CREATE TABLE IF NOT EXISTS themes (
     id   SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE
+    name TEXT NOT NULL UNIQUE
 );
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE themes;
+DROP TABLE IF EXISTS themes;
 -- +goose StatementEnd
