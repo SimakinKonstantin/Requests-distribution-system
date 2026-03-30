@@ -5,7 +5,7 @@ import Modal from '../components/Modal'
 import type { Slot } from '../types'
 
 type Form = Omit<Slot, 'id'>
-const empty: Form = { employeeId: 0, appealId: 0 }
+const empty: Form = { employeeId: 0, appealId: null, needToRemove: false }
 
 export default function SlotsPage() {
   const { items, loading, error, create, update, remove } = useCrud<Slot, Form>(slotApi)
@@ -16,7 +16,7 @@ export default function SlotsPage() {
   const openCreate = () => { setForm(empty); setModal('create') }
   const openEdit = (item: Slot) => {
     setEditing(item)
-    setForm({ employeeId: item.employeeId, appealId: item.appealId })
+    setForm({ employeeId: item.employeeId, appealId: item.appealId, needToRemove: item.needToRemove })
     setModal('edit')
   }
   const close = () => { setModal(null); setEditing(null) }
@@ -42,14 +42,15 @@ export default function SlotsPage() {
 
       <table style={table}>
         <thead>
-          <tr>{['ID', 'ID сотрудника', 'ID обращения', ''].map(h => <th key={h} style={th}>{h}</th>)}</tr>
+          <tr>{['ID', 'ID сотрудника', 'ID обращения', 'Будет удален', ''].map(h => <th key={h} style={th}>{h}</th>)}</tr>
         </thead>
         <tbody>
           {items.map(item => (
             <tr key={item.id}>
               <td style={td}>{item.id}</td>
               <td style={td}>{item.employeeId}</td>
-              <td style={td}>{item.appealId}</td>
+              <td style={td}>{item.appealId ?? '—'}</td>
+              <td style={td}>{item.needToRemove ? 'Да' : 'Нет'}</td>
               <td style={td}>
                 <button style={btnSm} onClick={() => openEdit(item)}>Изменить</button>
                 <button style={{ ...btnSm, ...btnDanger }} onClick={() => remove(item.id)}>Удалить</button>
@@ -66,10 +67,19 @@ export default function SlotsPage() {
               <input style={input} type="number" value={form.employeeId}
                 onChange={e => set('employeeId', Number(e.target.value))} required />
             </label>
-            <label style={label}>ID обращения
-              <input style={input} type="number" value={form.appealId}
-                onChange={e => set('appealId', Number(e.target.value))} required />
+            <label style={label}>ID обращения (может быть пустым)
+              <input style={input} type="number" value={form.appealId ?? ''}
+                onChange={e => {
+                  const v = e.target.value
+                  set('appealId', v === '' ? null : Number(v))
+                }} />
             </label>
+            {editing && (
+              <label style={{ ...label, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <input type="checkbox" checked={form.needToRemove} onChange={e => set('needToRemove', e.target.checked)} disabled />
+                Будет удален
+              </label>
+            )}
             <button style={{ ...btnPrimary, marginTop: 8 }} type="submit">Сохранить</button>
           </form>
         </Modal>

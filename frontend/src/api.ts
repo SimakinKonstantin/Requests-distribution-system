@@ -1,4 +1,4 @@
-import type { Appeal, Client, Employee, Slot, Subtheme, Theme } from './types'
+import type { Appeal, Client, Employee, Slot, Subtheme, Theme, Team } from './types'
 
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -77,4 +77,19 @@ export const subthemeApi = {
   update: (id: number, data: Omit<Subtheme, 'id'>) =>
     request<Subtheme>(`/subthemes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: number) => request<void>(`/subthemes/${id}`, { method: 'DELETE' }),
+}
+
+// ── Teams ────────────────────────────────────────────────────────────────────
+export const teamApi = {
+  getAll: () => request<Team[]>('/teams'),
+  getById: (id: number) => request<Team>(`/teams/${id}`),
+  create: (data: Omit<Team, 'id'>) => {
+    const payload = { name: data.name, ThemeSubtheme: data.themeSubtheme ?? [] }
+    return request<Team>('/teams', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  update: (id: number, data: Omit<Team, 'id'>) => {
+    const payload = { name: data.name, ThemeSubtheme: data.themeSubtheme ?? [] }
+    return request<Team>(`/teams/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
+  },
+  delete: (id: number) => request<void>(`/teams/${id}`, { method: 'DELETE' }),
 }

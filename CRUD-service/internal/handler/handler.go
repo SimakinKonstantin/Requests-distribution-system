@@ -31,6 +31,7 @@ func New(
 	subthemes service.SubthemeService,
 	clients service.ClientService,
 	themes service.ThemeService,
+	teams service.TeamService,
 ) *Handler {
 	return &Handler{
 		employees: employees,
@@ -39,6 +40,7 @@ func New(
 		subthemes: subthemes,
 		clients:   clients,
 		themes:    themes,
+		teams:     teams,
 	}
 }
 
@@ -51,6 +53,7 @@ func (h *Handler) InitRoutes() http.Handler {
 
 	mux.HandleFunc("/slots", h.slotsCollection)
 	mux.HandleFunc("/slots/", h.slotsResource)
+	mux.HandleFunc("/slots/count", h.changeSlotsCount)
 
 	mux.HandleFunc("/appeals", h.appealsCollection)
 	mux.HandleFunc("/appeals/", h.appealsResource)
@@ -218,18 +221,6 @@ func (h *Handler) slotsResource(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusOK, item)
-	case http.MethodPut:
-		var s model.Slot
-		if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
-		updated, err := h.slots.Update(id, s)
-		if err != nil {
-			notFoundOrInternal(w, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, updated)
 	case http.MethodDelete:
 		if err := h.slots.Delete(id); err != nil {
 			notFoundOrInternal(w, err)
@@ -239,6 +230,30 @@ func (h *Handler) slotsResource(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (h *Handler) changeSlotsCount(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var reqBody struct {
+		EmployeeID int `json:"employeeId"`
+		Count      int `json:"count"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	err := h.slots.UpdateCount(reqBody.EmployeeID, reqBody.Count)
+	if err != nil {
+		notFoundOrInternal(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, nil)
 }
 
 // ─── Appeal ───────────────────────────────────────────────────────────────────
@@ -282,12 +297,12 @@ func (h *Handler) appealsResource(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		closed, err := h.appeals.Close(id)
+		err = h.appeals.Close(id)
 		if err != nil {
 			notFoundOrInternal(w, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, closed)
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 

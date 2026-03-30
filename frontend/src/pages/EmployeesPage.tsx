@@ -1,27 +1,53 @@
 import { useState } from 'react'
-import { employeeApi } from '../api'
+import { employeeApi, teamApi } from '../api'
 import { useCrud } from '../hooks/useCrud'
 import Modal from '../components/Modal'
-import type { Employee } from '../types'
+import type { Employee, Team } from '../types'
 
-type Form = Omit<Employee, 'id'>
-const empty: Form = { name: '', surname: '', limit: 0, teamId: 0, email: '' }
+type Form = Omit<Employee, 'id'> & { teamIds?: number[] }
+const empty: Form = { name: '', surname: '', limit: 0, teamId: 0, email: '', teamIds: [], status: 'working' }
 
 export default function EmployeesPage() {
   const { items, loading, error, create, update, remove } = useCrud<Employee, Form>(employeeApi)
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
   const [editing, setEditing] = useState<Employee | null>(null)
   const [form, setForm] = useState<Form>(empty)
+  const [teams, setTeams] = useState<Team[]>([])
+
+  // load teams list
+  useState(() => {
+    teamApi.getAll().then(setTeams).catch(() => setTeams([]))
+  })
 
   const openCreate = () => { setForm(empty); setModal('create') }
   const openEdit = (item: Employee) => {
     setEditing(item)
-    setForm({ name: item.name, surname: item.surname, limit: item.limit, teamId: item.teamId, email: item.email })
+    // при просмотре/редактировании: teamIds не знаем -> по умолчанию текущая команда
+    setForm({
+      name: item.name,
+      surname: item.surname,
+      limit: item.limit,
+      teamId: item.teamId,
+      email: item.email,
+      teamIds: item.teamIds ?? (item.teamId ? [item.teamId] : []),
+      status: item.status ?? 'working',
+    })
     setModal('edit')
   }
   const close = () => { setModal(null); setEditing(null) }
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm(f => ({ ...f, [k]: v }))
+
+  const toggleTeam = (teamId: number) => {
+    setForm(f => {
+      const next = new Set(f.teamIds ?? [])
+      if (next.has(teamId)) next.delete(teamId)
+      else next.add(teamId)
+      const teamIds = Array.from(next)
+      const first = teamIds[0] ?? 0
+      return { ...f, teamIds, teamId: first }
+    })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,7 +68,7 @@ export default function EmployeesPage() {
 
       <table style={table}>
         <thead>
-          <tr>{['ID', 'Имя', 'Фамилия', 'Email', 'Лимит', 'ID команды', ''].map(h => <th key={h} style={th}>{h}</th>)}</tr>
+          <tr>{['ID', 'Имя', 'Фамилия', 'Email', 'Лимит', 'Статус', ''].map(h => <th key={h} style={th}>{h}</th>)}</tr>
         </thead>
         <tbody>
           {items.map(item => (
@@ -52,9 +78,9 @@ export default function EmployeesPage() {
               <td style={td}>{item.surname}</td>
               <td style={td}>{item.email}</td>
               <td style={td}>{item.limit}</td>
-              <td style={td}>{item.teamId}</td>
+              <td style={td}>{item.status === 'working' ? 'Работает' : 'Перерыв'}</td>
               <td style={td}>
-                <button style={btnSm} onClick={() => openEdit(item)}>Изменить</button>
+                <button style={btnSm} onClick={() => openEdit(item)}>Просмотр</button>
                 <button style={{ ...btnSm, ...btnDanger }} onClick={() => remove(item.id)}>Удалить</button>
               </td>
             </tr>
@@ -81,9 +107,31 @@ export default function EmployeesPage() {
               <input style={input} type="number" value={form.limit}
                 onChange={e => set('limit', Number(e.target.value))} required />
             </label>
-            <label style={label}>ID команды
-              <input style={input} type="number" value={form.teamId}
-                onChange={e => set('teamId', Number(e.target.value))} required />
+            <div style={{ fontWeight: 600, color: '#444' }}>Команды</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              {teams.map(t => {
+                const checked = (form.teamIds ?? []).includes(t.id)
+                return (
+                  <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleTeam(t.id)}
+                    />
+                    <span>({t.id}) {t.name}</span>
+                  </label>
+                )
+              })}
+            </div>
+            <label style={label}>Статус
+              <select
+                style={input as any}
+                value={form.status}
+                onChange={e => set('status', e.target.value as Form['status'])}
+              >
+                <option value="working">Работает</option>
+                <option value="break">Перерыв</option>
+              </select>
             </label>
             <button style={{ ...btnPrimary, marginTop: 8 }} type="submit">Сохранить</button>
           </form>

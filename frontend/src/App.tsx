@@ -6,6 +6,7 @@ import AppealsPage from './pages/AppealsPage'
 import AppealDetailPage from './pages/AppealDetailPage'
 import SlotsPage from './pages/SlotsPage'
 import SubthemesPage from './pages/SubthemesPage'
+import TeamsPage from './pages/TeamsPage'
 
 const navItems = [
   { to: '/employees', label: '👤 Сотрудники' },
@@ -14,15 +15,14 @@ const navItems = [
   { to: '/subthemes', label: '🏷️ Подтемы' },
   { to: '/appeals',   label: '📋 Обращения' },
   { to: '/slots',     label: '🔲 Слоты' },
+  { to: '/teams',     label: '👥 Команды' },
 ]
 
 export default function App() {
   return (
     <div style={layout}>
       <aside style={sidebar}>
-        <div style={logo}>
-          <div style={logoTitle}>Система распределения обращений</div>
-        </div>
+        <div style={logo}>ADS</div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {navItems.map(({ to, label }) => (
             <NavLink key={to} to={to} style={({ isActive }) => ({ ...navLink, ...(isActive ? navActive : {}) })}>
@@ -42,6 +42,7 @@ export default function App() {
           <Route path="/appeals/:id"   element={<AppealDetailPage />} />
           <Route path="/slots"     element={<SlotsPage />} />
           <Route path="/subthemes" element={<SubthemesPage />} />
+          <Route path="/teams"     element={<TeamsPage />} />
         </Routes>
       </main>
     </div>
@@ -57,11 +58,8 @@ const sidebar: React.CSSProperties = {
   position: 'sticky', top: 0, height: '100vh',
 }
 const logo: React.CSSProperties = {
-  marginBottom: 36, paddingLeft: 8,
-}
-const logoTitle: React.CSSProperties = {
-  fontSize: 14, fontWeight: 700, color: '#7c8cf8',
-  lineHeight: 1.35, letterSpacing: 0.3,
+  fontSize: 22, fontWeight: 800, letterSpacing: 2,
+  color: '#7c8cf8', marginBottom: 36, paddingLeft: 8,
 }
 const navLink: React.CSSProperties = {
   display: 'block', padding: '10px 14px', borderRadius: 8,

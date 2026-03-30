@@ -80,8 +80,6 @@ export default function AppealsPage() {
     employees.find(e => e.id === id)?.email ?? String(id)
   const themeName = (id: number) =>
     themes.find(t => t.id === id)?.name ?? String(id)
-  const subthemeName = (id: number) =>
-    subthemes.find(s => s.id === id)?.name ?? String(id)
 
   return (
     <div style={page}>
@@ -207,8 +205,14 @@ export default function AppealsPage() {
               </select>
             </label>
             <label style={labelS}>Сотрудник (email)
-              <select style={input} value={editForm.employeeId ?? 0}
-                onChange={e => setE('employeeId', e.target.value === '0' ? null : Number(e.target.value))}>
+              <select
+                style={input}
+                value={editForm.employeeId ?? 0}
+                onChange={e => {
+                  const v = Number(e.target.value)
+                  setE('employeeId', v === 0 ? null : v)
+                }}
+              >
                 <option value={0}>- не назначен -</option>
                 {employees.map(emp =>
                   <option key={emp.id} value={emp.id}>{emp.email}</option>

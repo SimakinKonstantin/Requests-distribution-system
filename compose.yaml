@@ -1,15 +1,15 @@
 name: appeals-distribution-system
 
 services:
-  # frontend:
-  #   build:
-  #     context: frontend
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - crud
-  #   networks:
-  #     - app-network
+  frontend:
+    build:
+      context: frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - crud
+    networks:
+      - app-network
 
   crud:
     build:

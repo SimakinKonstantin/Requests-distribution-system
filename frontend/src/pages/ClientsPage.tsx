@@ -5,7 +5,7 @@ import Modal from '../components/Modal'
 import type { Client } from '../types'
 
 type Form = Omit<Client, 'id'>
-const empty: Form = { email: '' }
+const empty: Form = { email: '', name: '', surname: '', isVip: false }
 
 export default function ClientsPage() {
   const { items, loading, error, create, update, remove } = useCrud<Client, Form>(clientApi)
@@ -16,7 +16,7 @@ export default function ClientsPage() {
   const openCreate = () => { setForm(empty); setModal('create') }
   const openEdit = (item: Client) => {
     setEditing(item)
-    setForm({ email: item.email })
+    setForm({ email: item.email, name: item.name, surname: item.surname, isVip: item.isVip })
     setModal('edit')
   }
   const close = () => { setModal(null); setEditing(null) }
@@ -40,13 +40,16 @@ export default function ClientsPage() {
 
       <table style={table}>
         <thead>
-          <tr>{['ID', 'Email', ''].map(h => <th key={h} style={th}>{h}</th>)}</tr>
+          <tr>{['ID', 'Email', 'Имя', 'Фамилия', 'VIP', ''].map(h => <th key={h} style={th}>{h}</th>)}</tr>
         </thead>
         <tbody>
           {items.map(item => (
             <tr key={item.id}>
               <td style={td}>{item.id}</td>
               <td style={td}>{item.email}</td>
+              <td style={td}>{item.name}</td>
+              <td style={td}>{item.surname}</td>
+              <td style={td}>{item.isVip ? 'Да' : 'Нет'}</td>
               <td style={td}>
                 <button style={btnSm} onClick={() => openEdit(item)}>Изменить</button>
                 <button style={{ ...btnSm, ...btnDanger }} onClick={() => remove(item.id)}>Удалить</button>
@@ -61,7 +64,20 @@ export default function ClientsPage() {
           <form onSubmit={handleSubmit} style={formGrid}>
             <label style={label}>Email
               <input style={input} type="email" value={form.email}
-                onChange={e => setForm({ email: e.target.value })} required />
+                onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
+            </label>
+            <label style={label}>Имя
+              <input style={input} value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
+            </label>
+            <label style={label}>Фамилия
+              <input style={input} value={form.surname}
+                onChange={e => setForm(f => ({ ...f, surname: e.target.value }))} required />
+            </label>
+            <label style={{ ...label, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={form.isVip}
+                onChange={e => setForm(f => ({ ...f, isVip: e.target.checked }))} />
+              VIP-клиент
             </label>
             <button style={{ ...btnPrimary, marginTop: 8 }} type="submit">Сохранить</button>
           </form>
