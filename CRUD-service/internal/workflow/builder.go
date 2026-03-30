@@ -40,7 +40,7 @@ func (wm *Manager) buildChain(nodes []Node, nextMap map[string]string, startId s
 		var block actionBlock
 
 		switch node.Type {
-		case gen.ActionNode:
+		case ActionNode:
 			actionBytes, err := json.Marshal(node.Data)
 			if err != nil {
 				wm.logger.Error("failed to Marshal action")
