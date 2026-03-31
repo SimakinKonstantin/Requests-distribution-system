@@ -1,6 +1,9 @@
 package workflow
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"log/slog"
+)
 
 type actionBlock interface {
 	Do(data map[string]interface{}) BlockResult
@@ -25,15 +28,15 @@ func findStartNode(nodes []Node, nextMap map[string]string) string {
 	}
 
 	for _, node := range nodes {
-		if !incoming[node.Id] {
-			return node.Id
+		if !incoming[node.ID] {
+			return node.ID
 		}
 	}
 
 	return ""
 }
 
-func (wm *Manager) buildChain(nodes []Node, nextMap map[string]string, startId string) actionBlock {
+func (wm *WorkflowService) buildChain(nodes []Node, nextMap map[string]string, startId string) actionBlock {
 	nodeMap := make(map[string]actionBlock)
 
 	for _, node := range nodes {
@@ -43,13 +46,13 @@ func (wm *Manager) buildChain(nodes []Node, nextMap map[string]string, startId s
 		case ActionNode:
 			actionBytes, err := json.Marshal(node.Data)
 			if err != nil {
-				wm.logger.Error("failed to Marshal action")
+				slog.Error("failed to Marshal action")
 				continue
 			}
 
-			var action gen.Action
+			var action Action
 			if err := json.Unmarshal(actionBytes, &action); err != nil {
-				wm.logger.Error("failed to Unmarshal action")
+				slog.Error("failed to Unmarshal action")
 				continue
 			}
 
@@ -57,47 +60,47 @@ func (wm *Manager) buildChain(nodes []Node, nextMap map[string]string, startId s
 				continue
 			}
 
-			if *action.ActionType == gen.AssignTeamAction {
+			if *action.ActionType == AssignTeamAction {
 				block = newActionBlockAssignTeam(wm.backEndClient, action.Data.Values, wm.logger)
 			}
 
-		case gen.PredicateNode:
+		case PredicateNode:
 			predicateBytes, err := json.Marshal(node.Data)
 			if err != nil {
-				wm.logger.Error("failed to Marshal predicate")
+				slog.Error("failed to Marshal predicate")
 				continue
 			}
 
-			var predicate gen.Predicate
+			var predicate Predicate
 			if err := json.Unmarshal(predicateBytes, &predicate); err != nil {
-				wm.logger.Error("failed to Unmarshal predicate")
+				slog.Error("failed to Unmarshal predicate")
 				continue
 			}
 
 			block = newPredicateBlock(predicate)
 
-		case gen.ConditionNode:
+		case ConditionNode:
 			conditionBytes, err := json.Marshal(node.Data)
 			if err != nil {
-				wm.logger.Error("failed to Marshal condition")
+				slog.Error("failed to Marshal condition")
 				continue
 			}
 
-			var conditionGroup gen.ConditionGroup
+			var conditionGroup ConditionGroup
 			if err := json.Unmarshal(conditionBytes, &conditionGroup); err != nil {
-				wm.logger.Error("failed to Unmarshal condition")
+				slog.Error("failed to Unmarshal condition")
 				continue
 			}
 
 			block = newConditionBlock(conditionGroup, wm.apiSmartChatClient)
 		}
 
-		nodeMap[node.Id] = block
+		nodeMap[node.ID] = block
 	}
 
 	for _, node := range nodes {
-		if target, exists := nextMap[node.Id]; exists {
-			if current, ok := nodeMap[node.Id]; ok {
+		if target, exists := nextMap[node.ID]; exists {
+			if current, ok := nodeMap[node.ID]; ok {
 				if nextBlock, ok := nodeMap[target]; ok {
 					current.SetNext(nextBlock)
 				}

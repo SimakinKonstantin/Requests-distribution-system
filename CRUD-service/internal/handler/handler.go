@@ -21,6 +21,7 @@ type Handler struct {
 	clients   service.ClientService
 	themes    service.ThemeService
 	teams     service.TeamService
+	workflows service.WorkflowService
 }
 
 // New returns a new Handler.
@@ -32,6 +33,7 @@ func New(
 	clients service.ClientService,
 	themes service.ThemeService,
 	teams service.TeamService,
+	workflows service.WorkflowService,
 ) *Handler {
 	return &Handler{
 		employees: employees,
@@ -41,6 +43,7 @@ func New(
 		clients:   clients,
 		themes:    themes,
 		teams:     teams,
+		workflows: workflows,
 	}
 }
 
@@ -70,6 +73,8 @@ func (h *Handler) InitRoutes() http.Handler {
 	mux.HandleFunc("/teams", h.teamsCollection)
 	mux.HandleFunc("/teams/", h.teamsResource)
 
+	mux.HandleFunc("/workflows", h.workflowsCollection)
+
 	return corsMiddleware(mux)
 }
 
@@ -89,8 +94,6 @@ func corsMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-
-// ─── helpers ────────────────────────────────────────────────────────────────────
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -591,6 +594,32 @@ func (h *Handler) teamsResource(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *Handler) workflowsCollection(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		items, err := h.workflows.GetAll()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPost:
+		var w model.Workflow
+		if err := json.NewDecoder(r.Body).Decode(&w); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		created, err := h.workflows.Create(w)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusCreated, created)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}

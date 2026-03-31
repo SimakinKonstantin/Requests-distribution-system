@@ -29,6 +29,7 @@ func main() {
 	clientRepo := repository.NewClientRepository(database)
 	themeRepo := repository.NewThemeRepository(database)
 	teamRepo := repository.NewTeamRepository(database)
+	workflowRepo := repository.NewWorkflowRepository(database)
 
 	// Services
 	employeeSvc := service.NewEmployeeService(database, employeeRepo, slotRepo)
@@ -38,9 +39,10 @@ func main() {
 	clientSvc := service.NewClientService(database, clientRepo)
 	themeSvc := service.NewThemeService(database, themeRepo)
 	teamSvc := service.NewTeamService(database, teamRepo)
+	workflowSvc := service.NewWorkflowService(workflowRepo)
 
 	// Handler & routes
-	h := handler.New(employeeSvc, slotSvc, appealSvc, subthemeSvc, clientSvc, themeSvc, teamSvc)
+	h := handler.New(employeeSvc, slotSvc, appealSvc, subthemeSvc, clientSvc, themeSvc, teamSvc, workflowSvc)
 	router := h.InitRoutes()
 
 	log.Printf("Starting server on %s", cfg.ServerAddr)
