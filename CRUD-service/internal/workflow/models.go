@@ -109,7 +109,7 @@ type Workflow struct {
 	Edges []Edge `json:"edges"`
 
 	// Id Id воркфлоу
-	Id string `json:"id"`
+	ID int `json:"id"`
 
 	// Name Имя воркфлоу
 	Name   string `json:"name"`

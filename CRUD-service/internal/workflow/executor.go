@@ -1,28 +1,22 @@
 package workflow
 
-import (
-	"workflow-service/gen"
-)
-
 type Executor struct {
-	status        gen.WorkflowStatus
-	chain         actionBlock
-	backEndClient *genclient.ClientWithResponses
+	status Status
+	chain  actionBlock
 }
 
-func newWorkflowExecutor(chain actionBlock, backEndClient *genclient.ClientWithResponses, status gen.WorkflowStatus) *Executor {
+func newWorkflowExecutor(chain actionBlock, status Status) *Executor {
 	return &Executor{
-		chain:         chain,
-		backEndClient: backEndClient,
-		status:        status,
+		chain:  chain,
+		status: status,
 	}
 }
 
-func (we *Executor) ExecuteWorkflow(data map[string]interface{}) actionBlockResult {
+func (we *Executor) ExecuteWorkflow(data map[string]interface{}) BlockResult {
 	current := we.chain
-	var result actionBlockResult
+	var result BlockResult
 
-	if we.status != gen.Live {
+	if we.status != StatusLive {
 		return result
 	}
 
