@@ -1,8 +1,8 @@
 package service
 
 import (
-	"crud-service/internal/model"
-	"crud-service/internal/repository"
+	"crud-service/internal/crud/model"
+	"crud-service/internal/crud/repository"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -27,8 +27,8 @@ func NewThemeService(db *sqlx.DB, repo repository.ThemeRepository) ThemeService 
 	return &themeService{db: db, repo: repo}
 }
 
-func (s *themeService) GetAll() ([]model.Theme, error)          { return s.repo.GetAll() }
-func (s *themeService) GetByID(id int) (model.Theme, error)     { return s.repo.GetByID(id) }
+func (s *themeService) GetAll() ([]model.Theme, error)      { return s.repo.GetAll() }
+func (s *themeService) GetByID(id int) (model.Theme, error) { return s.repo.GetByID(id) }
 func (s *themeService) Create(t model.Theme) (model.Theme, error) {
 	tx, err := s.db.Beginx()
 	if err != nil {

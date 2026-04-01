@@ -1,8 +1,8 @@
 package service
 
 import (
-	"crud-service/internal/model"
-	"crud-service/internal/repository"
+	"crud-service/internal/crud/model"
+	"crud-service/internal/crud/repository"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -14,6 +14,7 @@ type TeamService interface {
 	Create(s model.Team) (model.Team, error)
 	Update(id int, s model.Team) (model.Team, error)
 	Delete(id int) error
+	AssignTeam(appealId int, teamId int) error
 }
 
 type teamService struct {
@@ -91,4 +92,8 @@ func (s *teamService) Delete(id int) error {
 		return fmt.Errorf("teamService.Delete commit transaction: %w", err)
 	}
 	return nil
+}
+
+func (s *teamService) AssignTeam(appealId int, teamId int) error {
+	return s.repo.AssignTeam(appealId, teamId)
 }

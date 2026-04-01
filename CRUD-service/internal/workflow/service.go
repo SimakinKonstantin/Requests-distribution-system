@@ -1,7 +1,6 @@
 package workflow
 
 import (
-	"crud-service/internal/crud/repository"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -12,21 +11,23 @@ type WorkflowService struct {
 	repo WorkflowRepository
 }
 
-func NewWorkflowService(repo repository.WorkflowRepository) *WorkflowService {
-	return &WorkflowService{repo: repo}
+func NewWorkflowService(repo *WorkflowRepository) WorkflowService {
+	return WorkflowService{repo: *repo}
 }
 
-// func (ws *WorkflowService) GetAll() ([]GetAllResponse, error) {
-// 	dbWorkflows, err := ws.repo.GetAll()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	response := make([]GetAllResponse, len(dbWorkflows))
-// 	for i, dbWorkflow := range dbWorkflows {
-// 		response[i] = toGetAllResponse(dbWorkflow)
-// 	}
-// 	return response, nil
-// }
+func (ws *WorkflowService) GetAll() ([]GetAllResponse, error) {
+	dbWorkflows, err := ws.repo.All()
+	if err != nil {
+		return nil, err
+	}
+	response := make([]GetAllResponse, len(dbWorkflows))
+
+	for i := 0; i < len(dbWorkflows); i++ {
+		response[i].ID = dbWorkflows[i].ID
+		response[i].Name = dbWorkflows[i].Name
+	}
+	return response, nil
+}
 
 // func (ws *WorkflowService) GetById(id int) (GetAllResponse, error) {
 // 	dbWorkflow, err := ws.repo.GetByID(id)
@@ -211,7 +212,7 @@ func (wm *WorkflowService) buildExecutor(workflow Workflow) *Executor {
 	return executor
 }
 
-func createDbWorkflow(name string, status Status, data json.RawMessage) repository.WorkflowDB {
+func createDbWorkflow(name string, status Status, data json.RawMessage) WorkflowDB {
 	return WorkflowDB{
 		Name:   name,
 		Status: string(status),

@@ -6,7 +6,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"crud-service/internal/model"
+	"crud-service/internal/crud/model"
 )
 
 // employeeDB is the database-level representation of Employee.

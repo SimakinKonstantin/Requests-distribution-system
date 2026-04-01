@@ -61,7 +61,7 @@ func (wm *WorkflowService) buildChain(nodes []Node, nextMap map[string]string, s
 			}
 
 			if *action.ActionType == AssignTeamAction {
-				block = newActionBlockAssignTeam(wm.backEndClient, action.Data.Values, wm.logger)
+				block = newActionBlockAssignTeam(action.Data.Values)
 			}
 
 		case PredicateNode:
@@ -92,7 +92,7 @@ func (wm *WorkflowService) buildChain(nodes []Node, nextMap map[string]string, s
 				continue
 			}
 
-			block = newConditionBlock(conditionGroup, wm.apiSmartChatClient)
+			block = newConditionBlock(conditionGroup)
 		}
 
 		nodeMap[node.ID] = block

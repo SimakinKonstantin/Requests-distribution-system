@@ -2,62 +2,56 @@ package workflow
 
 import (
 	"context"
+	"crud-service/internal/crud/service"
+	"fmt"
 	"log/slog"
+	"strconv"
 )
 
 type actionBlockAssignTeam struct {
-	// nodeClient *genclient.ClientWithResponses
-	ctx    context.Context
-	next   actionBlock
-	logger slog.Logger
-	teamId string
+	ctx         context.Context
+	next        actionBlock
+	teamId      int
+	teamService service.TeamService
 }
 
-func newActionBlockAssignTeam( /*nodeClient *genclient.ClientWithResponses, */ values []string, logger slog.Logger) *actionBlockAssignTeam {
+func newActionBlockAssignTeam(values []string) *actionBlockAssignTeam {
 	if len(values) == 0 {
-		logger.Error("provide empty values")
+		slog.Error("provide empty values")
 		return &actionBlockAssignTeam{}
 	}
+
+	teamID, err := strconv.Atoi(values[0])
+	if err != nil {
+		slog.Error(fmt.Sprintf("error to convert team id: %w", err))
+		return &actionBlockAssignTeam{}
+	}
+
 	return &actionBlockAssignTeam{
-		// nodeClient: nodeClient,
 		ctx:    context.Background(),
-		teamId: values[0],
+		teamId: teamID,
 	}
 }
 
 func (a *actionBlockAssignTeam) Do(data map[string]interface{}) BlockResult {
-	// val, ok := data["appealId"]
-	// if !ok {
-	// 	return actionBlockResult{}
-	// }
-
-	// appealId, ok := val.(float64)
-	// if !ok {
-	// return actionBlockResult{}
-	// }
-
-	// resp, err := a.nodeClient.WorkflowHandlerControllerAssignTeamWithResponse(a.ctx, fmt.Sprintf("%v", appealId), a.teamId)
-	// if err != nil {
-	// 	a.logger.Error(fmt.Sprintf("error to send request: %w", err))
-	// 	return actionBlockResult{}
-	// }
-
-	// if resp == nil {
-	// 	a.logger.Error("nil response")
-	// 	return actionBlockResult{}
-	// }
-
-	// if resp.JSON200 == nil {
-	// 	a.logger.Error(fmt.Sprintf(fmt.Sprintf("nil response model. Body: %s", string(resp.Body))))
-	// 	return actionBlockResult{}
-	// }
-
-	return BlockResult{
-		TeamId: "123",
+	val, ok := data["appealId"]
+	if !ok {
+		return BlockResult{}
 	}
 
-	{
-		// TeamId: resp.JSON200.TeamId,
+	appealId, ok := val.(int)
+	if !ok {
+		return BlockResult{}
+	}
+
+	err := a.teamService.AssignTeam(int(appealId), int(a.teamId))
+	if err != nil {
+		slog.Error(fmt.Sprintf("error to send request: %w", err))
+		return BlockResult{}
+	}
+
+	return BlockResult{
+		TeamID: a.teamId,
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"crud-service/internal/model"
+	"crud-service/internal/crud/model"
 )
 
 // slotDB is the database-level representation of Slot.

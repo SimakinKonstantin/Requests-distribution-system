@@ -1,11 +1,10 @@
 package repository
 
 import (
+	"crud-service/internal/crud/model"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
-
-	"crud-service/internal/model"
 )
 
 // clientDB is the database-level representation of Client.

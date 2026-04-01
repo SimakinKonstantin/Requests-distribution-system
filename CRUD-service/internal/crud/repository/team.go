@@ -7,7 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"crud-service/internal/model"
+	"crud-service/internal/crud/model"
 )
 
 type ThemeSubthemeDB struct {
@@ -46,6 +46,7 @@ type TeamRepository interface {
 	Delete(tx *sqlx.Tx, id int) error
 	GetTeamByThemeSubtheme(themeID int, subthemeID *int, isVIP bool) (model.Team, error)
 	GetTeamByName(name string) (model.Team, error)
+	AssignTeam(appealId int, teamId int) error
 }
 
 type teamRepo struct {
@@ -222,4 +223,12 @@ func (r *teamRepo) GetTeamByName(name string) (model.Team, error) {
 	}
 
 	return team.toDomain(), nil
+}
+
+func (r *teamRepo) AssignTeam(appealId int, teamId int) error {
+	_, err := r.db.Exec(`UPDATE appeals SET team_id = $1 WHERE id = $2`, teamId, appealId)
+	if err != nil {
+		return fmt.Errorf("teamRepo.AssignTeam: %w", err)
+	}
+	return nil
 }

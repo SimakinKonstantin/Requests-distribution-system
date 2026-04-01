@@ -1,15 +1,15 @@
 package handler
 
 import (
+	"crud-service/internal/crud/model"
+	"crud-service/internal/crud/repository"
+	"crud-service/internal/crud/service"
+	"crud-service/internal/workflow"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
-
-	"crud-service/internal/model"
-	"crud-service/internal/repository"
-	"crud-service/internal/service"
 )
 
 // Handler holds all service dependencies.
@@ -21,7 +21,7 @@ type Handler struct {
 	clients   service.ClientService
 	themes    service.ThemeService
 	teams     service.TeamService
-	workflows service.WorkflowService
+	workflows workflow.WorkflowService
 }
 
 // New returns a new Handler.
@@ -33,7 +33,7 @@ func New(
 	clients service.ClientService,
 	themes service.ThemeService,
 	teams service.TeamService,
-	workflows service.WorkflowService,
+	workflows workflow.WorkflowService,
 ) *Handler {
 	return &Handler{
 		employees: employees,
@@ -609,12 +609,12 @@ func (h *Handler) workflowsCollection(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, items)
 	case http.MethodPost:
-		var w model.Workflow
+		var wf workflow.Workflow
 		if err := json.NewDecoder(r.Body).Decode(&w); err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
-		created, err := h.workflows.Create(w)
+		created, err := h.workflows.AddWorkflow(wf)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

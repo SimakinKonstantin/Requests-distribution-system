@@ -5,12 +5,6 @@ import (
 	"log/slog"
 )
 
-var (
-	_attributePlurals = map[gen.PredicateAttribute]string{
-		gen.ClientEmail: "clientEmails",
-	}
-)
-
 type conditionBlock struct {
 	conditionGroup ConditionGroup
 	skipNext       bool
@@ -42,7 +36,7 @@ func (c *conditionBlock) Do(data map[string]interface{}) BlockResult {
 		for _, predicate := range condition.Predicates {
 			predicateResult := c.checkPredicate(predicate, data)
 
-			conditionResult, err = changeBoolResult(conditionResult, predicateResult, gen.ConditionGroupOperator(condition.Operator))
+			conditionResult, err = changeBoolResult(conditionResult, predicateResult, ConditionGroupOperator(condition.Operator))
 			if err != nil {
 				slog.Error("Ошибка обработки предиката: %s", err)
 				c.skipNext = true
@@ -153,15 +147,8 @@ func (c *conditionBlock) checkPredicate(predicate Predicate, data map[string]int
 }
 
 func getAttributePlural(attribute PredicateAttribute, data map[string]any) (any, bool) {
-	var (
-		plural string
-		exists bool
-	)
-	if plural, exists = _attributePlurals[attribute]; !exists {
-		return nil, false
-	}
 
-	if alt, found := data[plural]; found {
+	if alt, found := data[string(attribute)]; found {
 		return alt, true
 	}
 

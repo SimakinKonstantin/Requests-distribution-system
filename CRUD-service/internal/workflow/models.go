@@ -22,8 +22,8 @@ type Node struct {
 }
 
 type BlockResult struct {
-	TeamID    string `json:"teamId"`
-	ManagerID string `json:"managerId"`
+	TeamID    int `json:"teamId"`
+	ManagerID int `json:"managerId"`
 }
 
 type NodeType string
@@ -42,7 +42,8 @@ const (
 )
 
 type Condition struct {
-	Predicates []Predicate `json:"predicates"`
+	Predicates []Predicate            `json:"predicates"`
+	Operator   ConditionGroupOperator `json:"operator"`
 }
 
 type ConditionGroup struct {

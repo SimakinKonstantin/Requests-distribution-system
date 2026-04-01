@@ -5,10 +5,11 @@ import (
 	"net/http"
 
 	"crud-service/internal/config"
+	"crud-service/internal/crud/repository"
+	"crud-service/internal/crud/service"
 	"crud-service/internal/db"
 	"crud-service/internal/handler"
-	"crud-service/internal/repository"
-	"crud-service/internal/service"
+	"crud-service/internal/workflow"
 )
 
 func main() {
@@ -29,7 +30,7 @@ func main() {
 	clientRepo := repository.NewClientRepository(database)
 	themeRepo := repository.NewThemeRepository(database)
 	teamRepo := repository.NewTeamRepository(database)
-	workflowRepo := repository.NewWorkflowRepository(database)
+	workflowRepo := workflow.NewWorkflowRepository(database)
 
 	// Services
 	employeeSvc := service.NewEmployeeService(database, employeeRepo, slotRepo)
@@ -39,7 +40,7 @@ func main() {
 	clientSvc := service.NewClientService(database, clientRepo)
 	themeSvc := service.NewThemeService(database, themeRepo)
 	teamSvc := service.NewTeamService(database, teamRepo)
-	workflowSvc := service.NewWorkflowService(workflowRepo)
+	workflowSvc := workflow.NewWorkflowService(workflowRepo)
 
 	// Handler & routes
 	h := handler.New(employeeSvc, slotSvc, appealSvc, subthemeSvc, clientSvc, themeSvc, teamSvc, workflowSvc)

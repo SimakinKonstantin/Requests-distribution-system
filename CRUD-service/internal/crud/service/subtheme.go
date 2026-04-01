@@ -1,8 +1,8 @@
 package service
 
 import (
-	"crud-service/internal/model"
-	"crud-service/internal/repository"
+	"crud-service/internal/crud/model"
+	"crud-service/internal/crud/repository"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"

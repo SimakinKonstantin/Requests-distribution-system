@@ -1,13 +1,12 @@
 package repository
 
 import (
+	"crud-service/internal/crud/model"
 	"database/sql"
 	"fmt"
 	"log/slog"
 
 	"github.com/jmoiron/sqlx"
-
-	"crud-service/internal/model"
 )
 
 // appealDB is the database-level representation of Appeal.

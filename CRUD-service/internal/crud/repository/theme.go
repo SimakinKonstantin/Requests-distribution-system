@@ -5,7 +5,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"crud-service/internal/model"
+	"crud-service/internal/crud/model"
 )
 
 // themeDB is the database-level representation of Theme.
