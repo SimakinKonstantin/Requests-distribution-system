@@ -118,86 +118,39 @@ func (c *conditionBlock) checkPredicate(predicate Predicate, data map[string]int
 		}
 	}
 
-	if *predicate.Attribute == UserAgent {
-		valueStr, ok := val.(string)
-		if !ok {
-			slog.Error("Attribute is UserAgent, but has no value")
-			return false
-		}
-
-		val = ParseUserAgent(valueStr)
-	}
-
 	var (
 		predicateResult bool
 		err             error
 	)
 
 	switch string(*predicate.Comparison) {
-	// case string(gen.PredicateComparisonEq):
-	// 	predicateResult, err = anyEqual(val, predicate.Values)
-	// case string(gen.PredicateComparisonContains):
-	// 	predicateResult, err = contains(val, predicate.Values)
-	// case string(gen.PredicateComparisonInInterval):
-	// 	predicateResult, err = timeInInterval(val, predicate.Values)
-	// case string(gen.PredicateComparisonNotEq):
-	// 	predicateResult, err = anyEqual(val, predicate.Values)
-	// 	predicateResult = !predicateResult
-	// case string(gen.PredicateComparisonNotContains):
-	// 	predicateResult, err = contains(val, predicate.Values)
-	// 	predicateResult = !predicateResult
-	// case string(gen.PredicateComparisonNotInInterval):
-	// 	predicateResult, err = timeInInterval(val, predicate.Values)
-	// 	predicateResult = !predicateResult
+	case string(Eq):
+		predicateResult, err = anyEqual(val, predicate.Values)
+	case string(Contains):
+		predicateResult, err = contains(val, predicate.Values)
+	case string(InInterval):
+		predicateResult, err = timeInInterval(val, predicate.Values)
+	case string(NotEq):
+		predicateResult, err = anyEqual(val, predicate.Values)
+		predicateResult = !predicateResult
+	case string(NotContains):
+		predicateResult, err = contains(val, predicate.Values)
+		predicateResult = !predicateResult
+	case string(NotInInterval):
+		predicateResult, err = timeInInterval(val, predicate.Values)
+		predicateResult = !predicateResult
 	default:
 		err = fmt.Errorf("unknown comparison operator: %s", string(*predicate.Comparison))
 		predicateResult = false
 	}
 
 	if err != nil {
-		// swlog.Global().Error(err.Error())
+		slog.Error(fmt.Sprintf("Error checking predicate: %s", err.Error()))
 		return false
 	}
 
 	return predicateResult
 }
-
-const (
-	AndroidUA = "android"
-	IosUA     = "ios"
-	EmailUA   = "email"
-	WebUA     = "web"
-)
-
-// Перевод userAgent в формат, который приходит с фронта.
-// func ParseUserAgent(userAgent string) string {
-// 	agent := useragent.Parse(userAgent)
-
-// 	// todo Убрать ktor-client, когда будет отправляться валидный userAgent с андроида.
-// 	if userAgent == "ktor-client" {
-// 		return AndroidUA
-// 	}
-
-// 	// todo Пока для проверки на ios, т.к. либа некорректно парсит для ios
-// 	if strings.HasPrefix(userAgent, "SmartwayBeta") || strings.HasPrefix(userAgent, "Smartway") {
-// 		return IosUA
-// 	}
-
-// 	// Если agent отправляется через mailService, то будет установлен некорректный userAgent.
-// 	if agent.IsUnknown() {
-// 		return EmailUA
-// 	}
-
-// 	if agent.OS == useragent.IOS {
-// 		return IosUA
-// 	}
-
-// 	if agent.OS == useragent.Android {
-// 		return AndroidUA
-// 	}
-
-// 	return WebUA
-// }
 
 func getAttributePlural(attribute PredicateAttribute, data map[string]any) (any, bool) {
 	var (
