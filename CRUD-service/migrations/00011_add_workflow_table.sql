@@ -3,7 +3,7 @@
 CREATE TABLE IF NOT EXISTS workflows (
     id      SERIAL       PRIMARY KEY,
     name    TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused'))
+    status TEXT NOT NULL,
     data JSONB NOT NULL
 );
 -- +goose StatementEnd

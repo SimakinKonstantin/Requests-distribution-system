@@ -1,4 +1,14 @@
-import type { Appeal, Client, Employee, Slot, Subtheme, Theme, Team } from './types'
+import type {
+  Appeal,
+  Client,
+  Employee,
+  Slot,
+  Subtheme,
+  Theme,
+  Team,
+  Workflow,
+  WorkflowGetAll,
+} from './types'
 
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -26,6 +36,7 @@ export const employeeApi = {
 // ── Clients ────────────────────────────────────────────────────────────────
 export const clientApi = {
   getAll: () => request<Client[]>('/clients'),
+  getEmails: () => request<string[]>('/clients/emails'),
   getById: (id: number) => request<Client>(`/clients/${id}`),
   create: (data: Omit<Client, 'id'>) =>
     request<Client>('/clients', { method: 'POST', body: JSON.stringify(data) }),
@@ -92,4 +103,15 @@ export const teamApi = {
     return request<Team>(`/teams/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
   },
   delete: (id: number) => request<void>(`/teams/${id}`, { method: 'DELETE' }),
+}
+
+// ── Workflows ───────────────────────────────────────────────────────────────
+export const workflowApi = {
+  getAll: () => request<WorkflowGetAll[]>('/workflows'),
+  getById: (id: number) => request<Workflow>(`/workflows/${id}`),
+  create: (data: Omit<Workflow, 'id'>) =>
+    request<Workflow>('/workflows', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: Omit<Workflow, 'id'>) =>
+    request<Workflow>(`/workflows/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: number) => request<void>(`/workflows/${id}`, { method: 'DELETE' }),
 }

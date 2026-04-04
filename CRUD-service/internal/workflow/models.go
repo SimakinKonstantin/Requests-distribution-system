@@ -14,11 +14,7 @@ type Edge struct {
 type Node struct {
 	ID   string       `json:"id"`
 	Data *interface{} `json:"data"`
-	// Position *struct {
-	// 	X float64 `json:"x"`
-	// 	Y float64 `json:"y"`
-	// } `json:"position,omitempty"`
-	Type NodeType `json:"type"`
+	Type NodeType     `json:"type"`
 }
 
 type BlockResult struct {
@@ -41,13 +37,8 @@ const (
 	ConditionGroupOperatorOr  ConditionGroupOperator = "or"
 )
 
-type Condition struct {
-	Predicates []Predicate            `json:"predicates"`
-	Operator   ConditionGroupOperator `json:"operator"`
-}
-
 type ConditionGroup struct {
-	Conditions []Condition            `json:"conditions"`
+	Conditions []Predicate            `json:"conditions"`
 	Operator   ConditionGroupOperator `json:"operator"`
 }
 
@@ -71,7 +62,6 @@ type PredicateComparison string
 const (
 	All           PredicateComparison = "All"
 	Contains      PredicateComparison = "Contains"
-	EndsWith      PredicateComparison = "EndsWith"
 	Eq            PredicateComparison = "Eq"
 	InInterval    PredicateComparison = "InInterval"
 	NotContains   PredicateComparison = "NotContains"

@@ -35,12 +35,12 @@ func main() {
 	// Services
 	employeeSvc := service.NewEmployeeService(database, employeeRepo, slotRepo)
 	slotSvc := service.NewSlotService(database, slotRepo)
-	appealSvc := service.NewAppealService(database, appealRepo, teamRepo, clientRepo, slotRepo)
 	subthemeSvc := service.NewSubthemeService(database, subthemeRepo)
 	clientSvc := service.NewClientService(database, clientRepo)
 	themeSvc := service.NewThemeService(database, themeRepo)
 	teamSvc := service.NewTeamService(database, teamRepo)
-	workflowSvc := workflow.NewWorkflowService(workflowRepo)
+	workflowSvc := workflow.NewWorkflowService(workflowRepo, teamSvc)
+	appealSvc := service.NewAppealService(database, appealRepo, teamRepo, clientRepo, slotRepo, workflowSvc)
 
 	// Handler & routes
 	h := handler.New(employeeSvc, slotSvc, appealSvc, subthemeSvc, clientSvc, themeSvc, teamSvc, workflowSvc)

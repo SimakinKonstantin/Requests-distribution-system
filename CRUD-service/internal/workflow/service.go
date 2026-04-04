@@ -8,11 +8,12 @@ import (
 )
 
 type WorkflowService struct {
-	repo WorkflowRepository
+	repo         WorkflowRepository
+	teamAssigner TeamAssigner
 }
 
-func NewWorkflowService(repo *WorkflowRepository) WorkflowService {
-	return WorkflowService{repo: *repo}
+func NewWorkflowService(repo *WorkflowRepository, teamAssigner TeamAssigner) WorkflowService {
+	return WorkflowService{repo: *repo, teamAssigner: teamAssigner}
 }
 
 func (ws *WorkflowService) GetAll() ([]GetAllResponse, error) {
@@ -37,33 +38,21 @@ func (ws *WorkflowService) GetAll() ([]GetAllResponse, error) {
 // 	return toGetAllResponse(dbWorkflow), nil
 // }
 
-// func toGetWorkflow(db repository.WorkflowDB) Workflow {
-// 	return Workflow{
-// 		ID:     db.ID,
-// 		Name:   db.Name,
-// 		Status: Status(db.Status),
-// 		Data:   db.Data,
-// 	}
-// }
-
-// func toGetAllResponse(db repository.GetAllDB) GetAllResponse {
-// 	return GetAllResponse{
-// 		ID:   db.ID,
-// 		Name: db.Name,
-// 	}
-// }
-
 func (ws *WorkflowService) Run(payload map[string]interface{}) []BlockResult {
 	var (
 		wg      sync.WaitGroup
 		results []BlockResult
 	)
 
+	slog.Info("Starting workflow")
+
 	dbWorkflows, err := ws.repo.All()
 	if err != nil {
 		slog.Error(fmt.Sprintf("failed to get all workflows from db: %w", err))
 		return nil
 	}
+
+	slog.Info("Got all workflows from db")
 
 	var executors []*Executor
 	for _, w := range dbWorkflows {
@@ -82,6 +71,8 @@ func (ws *WorkflowService) Run(payload map[string]interface{}) []BlockResult {
 		executors = append(executors, executor)
 	}
 
+	slog.Info("Built executors")
+
 	for _, executor := range executors {
 		wg.Add(1)
 		go func(e *Executor) {
@@ -92,6 +83,9 @@ func (ws *WorkflowService) Run(payload map[string]interface{}) []BlockResult {
 	}
 
 	wg.Wait()
+
+	slog.Info("Finished executing workflows")
+
 	return results
 }
 
@@ -106,6 +100,8 @@ func (wm *WorkflowService) AddWorkflow(workflow Workflow) (Workflow, error) {
 		workflow.Status,
 		data,
 	)
+
+	slog.Info(fmt.Sprintf("dbWorkflow: %+v", dbWorkflow))
 
 	ID, err := wm.repo.Save(dbWorkflow)
 	if err != nil {
@@ -149,6 +145,30 @@ func (wm *WorkflowService) GetWorkflowById(ID int) (Workflow, error) {
 	return workflow, nil
 }
 
+func (wm *WorkflowService) DeleteWorkflow(ID int) error {
+	if err := wm.repo.Delete(ID); err != nil {
+		return fmt.Errorf("failed to delete workflow: %w", err)
+	}
+	return nil
+}
+
+func (wm *WorkflowService) UpdateWorkflow(ID int, newWorkflow Workflow) (Workflow, error) {
+	data, err := createWorkflowData(newWorkflow)
+	if err != nil {
+		return Workflow{}, fmt.Errorf("failed to create workflow data: %w", err)
+	}
+	dbWorkflow := WorkflowDB{
+		ID:     ID,
+		Name:   newWorkflow.Name,
+		Status: string(newWorkflow.Status),
+		Data:   data,
+	}
+	if err = wm.repo.Update(ID, dbWorkflow); err != nil {
+		return Workflow{}, fmt.Errorf("failed to update workflow: %w", err)
+	}
+	return newWorkflow, nil
+}
+
 // func (wm *WorkflowService) GetWorkflows() ([]Workflow, error) {
 // 	dbWorkflows, err := wm.repo.All()
 // 	if err != nil {
@@ -183,26 +203,6 @@ func (wm *WorkflowService) GetWorkflowById(ID int) (Workflow, error) {
 // 		},
 // 	}, nil
 // }
-
-func (wm *WorkflowService) UpdateWorkflow(ID int, newWorkflow Workflow) (Workflow, error) {
-	data, err := createWorkflowData(newWorkflow)
-	if err != nil {
-		return Workflow{}, fmt.Errorf("failed to create workflow data: %w", err)
-	}
-
-	dbWorkflow := WorkflowDB{
-		ID:     ID,
-		Name:   newWorkflow.Name,
-		Status: string(newWorkflow.Status),
-		Data:   data,
-	}
-
-	if err = wm.repo.Update(ID, dbWorkflow); err != nil {
-		return Workflow{}, fmt.Errorf("failed to update workflow: %w", err)
-	}
-
-	return newWorkflow, nil
-}
 
 func (wm *WorkflowService) buildExecutor(workflow Workflow) *Executor {
 	nextMap := buildNextMap(workflow.Edges)

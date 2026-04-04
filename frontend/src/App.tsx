@@ -7,6 +7,7 @@ import AppealDetailPage from './pages/AppealDetailPage'
 import SlotsPage from './pages/SlotsPage'
 import SubthemesPage from './pages/SubthemesPage'
 import TeamsPage from './pages/TeamsPage'
+import WorkflowsPage from './pages/WorkflowsPage'
 
 const navItems = [
   { to: '/employees', label: '👤 Сотрудники' },
@@ -16,6 +17,7 @@ const navItems = [
   { to: '/appeals',   label: '📋 Обращения' },
   { to: '/slots',     label: '🔲 Слоты' },
   { to: '/teams',     label: '👥 Команды' },
+  { to: '/workflows', label: '⚙️ Воркфлоу' },
 ]
 
 export default function App() {
@@ -43,6 +45,7 @@ export default function App() {
           <Route path="/slots"     element={<SlotsPage />} />
           <Route path="/subthemes" element={<SubthemesPage />} />
           <Route path="/teams"     element={<TeamsPage />} />
+          <Route path="/workflows" element={<WorkflowsPage />} />
         </Routes>
       </main>
     </div>

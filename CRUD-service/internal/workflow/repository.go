@@ -78,3 +78,14 @@ func (r *WorkflowRepository) Get(id int) (WorkflowDB, error) {
 	}
 	return row, nil
 }
+
+func (r *WorkflowRepository) Delete(id int) error {
+	_, err := r.db.Exec(
+		`DELETE FROM workflows WHERE id = $1`,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to delete workflow: %w", err)
+	}
+	return nil
+}

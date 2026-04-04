@@ -2,28 +2,23 @@ package workflow
 
 import (
 	"context"
-	"crud-service/internal/crud/service"
-	"fmt"
-	"log/slog"
 	"strconv"
 )
 
 type actionBlockAssignTeam struct {
-	ctx         context.Context
-	next        actionBlock
-	teamId      int
-	teamService service.TeamService
+	ctx          context.Context
+	next         actionBlock
+	teamId       int
+	teamAssigner TeamAssigner
 }
 
 func newActionBlockAssignTeam(values []string) *actionBlockAssignTeam {
 	if len(values) == 0 {
-		slog.Error("provide empty values")
 		return &actionBlockAssignTeam{}
 	}
 
 	teamID, err := strconv.Atoi(values[0])
 	if err != nil {
-		slog.Error(fmt.Sprintf("error to convert team id: %w", err))
 		return &actionBlockAssignTeam{}
 	}
 
@@ -33,8 +28,8 @@ func newActionBlockAssignTeam(values []string) *actionBlockAssignTeam {
 	}
 }
 
-func (a *actionBlockAssignTeam) Do(data map[string]interface{}) BlockResult {
-	val, ok := data["appealId"]
+func (a *actionBlockAssignTeam) Do(payload map[string]interface{}) BlockResult {
+	val, ok := payload["appealId"]
 	if !ok {
 		return BlockResult{}
 	}
@@ -44,9 +39,12 @@ func (a *actionBlockAssignTeam) Do(data map[string]interface{}) BlockResult {
 		return BlockResult{}
 	}
 
-	err := a.teamService.AssignTeam(int(appealId), int(a.teamId))
+	if a.teamAssigner == nil {
+		return BlockResult{}
+	}
+
+	err := a.teamAssigner.AssignTeam(int(appealId), int(a.teamId))
 	if err != nil {
-		slog.Error(fmt.Sprintf("error to send request: %w", err))
 		return BlockResult{}
 	}
 

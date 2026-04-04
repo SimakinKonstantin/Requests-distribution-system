@@ -4,7 +4,6 @@ import (
 	"crud-service/internal/crud/model"
 	"database/sql"
 	"fmt"
-	"log/slog"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -130,8 +129,6 @@ func (r *appealRepo) GetByID(id int) (model.Appeal, error) {
 
 func (r *appealRepo) Create(tx *sqlx.Tx, a model.Appeal) (model.Appeal, error) {
 	row := toAppealDB(a)
-
-	slog.Warn("row.EmployeeID", "row.EmployeeID", row.EmployeeID)
 
 	err := tx.QueryRowx(
 		`INSERT INTO appeals (client_id, employee_id, theme_id, subtheme_id, text, status, team_id)

@@ -31,6 +31,7 @@ type ClientRepository interface {
 	Create(tx *sqlx.Tx, c model.Client) (model.Client, error)
 	Update(tx *sqlx.Tx, id int, c model.Client) (model.Client, error)
 	Delete(tx *sqlx.Tx, id int) error
+	GetEmails() ([]string, error)
 }
 
 type clientRepo struct {
@@ -99,4 +100,12 @@ func (r *clientRepo) Delete(tx *sqlx.Tx, id int) error {
 		return fmt.Errorf("clientRepo.Delete: %w", err)
 	}
 	return expectOneRow(res)
+}
+
+func (r *clientRepo) GetEmails() ([]string, error) {
+	var rows []string
+	if err := r.db.Select(&rows, `SELECT email FROM clients`); err != nil {
+		return nil, fmt.Errorf("clientRepo.GetEmails: %w", err)
+	}
+	return rows, nil
 }

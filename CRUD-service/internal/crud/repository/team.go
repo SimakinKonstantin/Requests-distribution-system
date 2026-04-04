@@ -2,7 +2,6 @@ package repository
 
 import (
 	"fmt"
-	"log/slog"
 	"slices"
 
 	"github.com/jmoiron/sqlx"
@@ -64,8 +63,6 @@ func (r *teamRepo) GetAll() ([]model.Team, error) {
 		return nil, fmt.Errorf("teamRepo.GetAll: %w", err)
 	}
 
-	slog.Warn("GOT TEAMS ROWS")
-
 	result := make([]model.Team, len(rows))
 	for i, row := range rows {
 		filledRow, err := r.fillThemesSubthemes(row)
@@ -76,7 +73,6 @@ func (r *teamRepo) GetAll() ([]model.Team, error) {
 		result[i] = filledRow.toDomain()
 	}
 
-	slog.Warn("GOT TEAMS SUBTHEMES")
 	return result, nil
 }
 

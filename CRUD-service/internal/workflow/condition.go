@@ -15,7 +15,7 @@ func newConditionBlock(conditionGroup ConditionGroup) *conditionBlock {
 	return &conditionBlock{conditionGroup: conditionGroup}
 }
 
-func (c *conditionBlock) Do(data map[string]interface{}) BlockResult {
+func (c *conditionBlock) Do(payload map[string]interface{}) BlockResult {
 	conditionGroupResult, err := initBoolResult(c.conditionGroup.Operator)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Ошибка обработки условия: %s", err))
@@ -23,33 +23,21 @@ func (c *conditionBlock) Do(data map[string]interface{}) BlockResult {
 		return BlockResult{}
 	}
 
-	// Обход всех подгрупп условий.
 	for _, condition := range c.conditionGroup.Conditions {
-		conditionResult, err := initBoolResult(ConditionGroupOperator(condition.Operator))
+		slog.Warn(fmt.Sprintf("CONDITION group result before: %+v", conditionGroupResult))
+
+		predicateResult := c.checkPredicate(condition, payload)
+
+		slog.Warn(fmt.Sprintf("PREDICATE RESULT: %v", predicateResult))
+
+		conditionGroupResult, err = changeBoolResult(conditionGroupResult, predicateResult, ConditionGroupOperator(c.conditionGroup.Operator))
 		if err != nil {
-			slog.Error("Ошибка обработки условия из группы: %s", err)
+			slog.Error("Ошибка обработки условия из группы: %s", err.Error())
 			c.skipNext = true
 			return BlockResult{}
 		}
 
-		// Обход всех условий внутри condition.
-		for _, predicate := range condition.Predicates {
-			predicateResult := c.checkPredicate(predicate, data)
-
-			conditionResult, err = changeBoolResult(conditionResult, predicateResult, ConditionGroupOperator(condition.Operator))
-			if err != nil {
-				slog.Error("Ошибка обработки предиката: %s", err)
-				c.skipNext = true
-				return BlockResult{}
-			}
-		}
-
-		conditionGroupResult, err = changeBoolResult(conditionGroupResult, conditionResult, c.conditionGroup.Operator)
-		if err != nil {
-			slog.Error("Ошибка обработки условия из группы: %s", err)
-			c.skipNext = true
-			return BlockResult{}
-		}
+		slog.Warn(fmt.Sprintf("CONDITION GROUP RESULT: %v", conditionGroupResult))
 	}
 
 	c.skipNext = !conditionGroupResult
@@ -97,15 +85,15 @@ func changeBoolResult(curValue, value bool, operator ConditionGroupOperator) (bo
 	return false, fmt.Errorf("неизвестный логический оператор: %s", string(operator))
 }
 
-func (c *conditionBlock) checkPredicate(predicate Predicate, data map[string]interface{}) bool {
+func (c *conditionBlock) checkPredicate(predicate Predicate, payload map[string]interface{}) bool {
 	if predicate.Attribute == nil || predicate.Comparison == nil {
 		slog.Error("Predicate has nil field")
 		return false
 	}
 
-	val, ok := data[string(*predicate.Attribute)]
+	val, ok := payload[string(*predicate.Attribute)]
 	if !ok {
-		val, ok = getAttributePlural(*predicate.Attribute, data)
+		val, ok = getAttributePlural(*predicate.Attribute, payload)
 		if !ok {
 			slog.Error("Attribute '%s' not found in data", *predicate.Attribute)
 			return false
@@ -146,9 +134,9 @@ func (c *conditionBlock) checkPredicate(predicate Predicate, data map[string]int
 	return predicateResult
 }
 
-func getAttributePlural(attribute PredicateAttribute, data map[string]any) (any, bool) {
+func getAttributePlural(attribute PredicateAttribute, payload map[string]any) (any, bool) {
 
-	if alt, found := data[string(attribute)]; found {
+	if alt, found := payload[string(attribute)]; found {
 		return alt, true
 	}
 

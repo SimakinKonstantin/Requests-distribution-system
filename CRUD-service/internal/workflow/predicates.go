@@ -19,12 +19,12 @@ func newPredicateBlock(predicate Predicate) *predicateBlock {
 	return &predicateBlock{predicate: predicate}
 }
 
-func (p *predicateBlock) Do(data map[string]interface{}) BlockResult {
+func (p *predicateBlock) Do(payload map[string]interface{}) BlockResult {
 	if p.predicate.Attribute == nil || p.predicate.Comparison == nil {
 		return BlockResult{}
 	}
 
-	val, ok := data[string(*p.predicate.Attribute)]
+	val, ok := payload[string(*p.predicate.Attribute)]
 
 	if !ok {
 		fmt.Printf("Attribute '%s' not found in data", string(*p.predicate.Attribute))

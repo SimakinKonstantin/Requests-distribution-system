@@ -2,11 +2,12 @@ package workflow
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 )
 
 type actionBlock interface {
-	Do(data map[string]interface{}) BlockResult
+	Do(payload map[string]interface{}) BlockResult
 	GetNext() actionBlock
 	End() bool
 	SetNext(next actionBlock)
@@ -61,10 +62,16 @@ func (wm *WorkflowService) buildChain(nodes []Node, nextMap map[string]string, s
 			}
 
 			if *action.ActionType == AssignTeamAction {
-				block = newActionBlockAssignTeam(action.Data.Values)
+				assignBlock := newActionBlockAssignTeam(action.Data.Values)
+				// Inject team assigner from service if available
+				assignBlock.teamAssigner = wm.teamAssigner
+				block = assignBlock
 			}
 
 		case PredicateNode:
+
+			slog.Warn(fmt.Sprintf("PREDICATE NODE NODE.DATA: %+v", node.Data))
+
 			predicateBytes, err := json.Marshal(node.Data)
 			if err != nil {
 				slog.Error("failed to Marshal predicate")
@@ -76,6 +83,7 @@ func (wm *WorkflowService) buildChain(nodes []Node, nextMap map[string]string, s
 				slog.Error("failed to Unmarshal predicate")
 				continue
 			}
+			slog.Warn(fmt.Sprintf("UNMARSHALLED PREDICATE: %+v", predicate))
 
 			block = newPredicateBlock(predicate)
 

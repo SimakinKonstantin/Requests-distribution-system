@@ -60,3 +60,62 @@ export interface Team {
   // и/или "ThemeSubtheme" (без json-тэга) — обработаем на уровне UI
   // ThemeSubtheme?: TeamThemeSubtheme[] | null
 }
+
+export type WorkflowStatus = 'active' | 'paused'
+export type WorkflowNodeType = 'ActionNode' | 'ConditionNode' | 'PredicateNode'
+export type WorkflowComparison =
+  | 'All'
+  | 'Contains'
+  | 'EndsWith'
+  | 'Eq'
+  | 'InInterval'
+  | 'NotContains'
+  | 'NotEq'
+  | 'NotInInterval'
+export type WorkflowPredicateAttribute = 'clientEmail' | 'messageCreatedAt' | 'text' | 'themeId'
+export type WorkflowLogicOperator = 'and' | 'or'
+
+export interface WorkflowGetAll {
+  id: number
+  name: string
+}
+
+export interface WorkflowEdge {
+  id: string
+  source: string
+  target: string
+}
+
+export interface WorkflowPredicate {
+  attribute?: WorkflowPredicateAttribute
+  comparison?: WorkflowComparison
+  values: string[]
+}
+
+export interface WorkflowConditionGroup {
+  operator: WorkflowLogicOperator
+  conditions: WorkflowPredicate[]
+}
+
+export interface WorkflowActionData {
+  values: string[]
+}
+
+export interface WorkflowAction {
+  actionType?: 'assignTeamAction'
+  data?: WorkflowActionData
+}
+
+export interface WorkflowNode {
+  id: string
+  type: WorkflowNodeType
+  data?: WorkflowPredicate | WorkflowConditionGroup | WorkflowAction
+}
+
+export interface Workflow {
+  id: number
+  name: string
+  status: WorkflowStatus
+  nodes: WorkflowNode[]
+  edges: WorkflowEdge[]
+}

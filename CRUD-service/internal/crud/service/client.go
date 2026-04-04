@@ -15,6 +15,7 @@ type ClientService interface {
 	Create(c model.Client) (model.Client, error)
 	Update(id int, c model.Client) (model.Client, error)
 	Delete(id int) error
+	GetEmails() ([]string, error)
 }
 
 type clientService struct {
@@ -98,4 +99,8 @@ func (s *clientService) Delete(id int) error {
 		return fmt.Errorf("clientService.Delete commit transaction: %w", err)
 	}
 	return nil
+}
+
+func (s *clientService) GetEmails() ([]string, error) {
+	return s.repo.GetEmails()
 }

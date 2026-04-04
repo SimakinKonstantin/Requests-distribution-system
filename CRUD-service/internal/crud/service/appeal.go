@@ -3,10 +3,12 @@ package service
 import (
 	"crud-service/internal/crud/model"
 	"crud-service/internal/crud/repository"
+	"crud-service/internal/workflow"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -24,21 +26,23 @@ type AppealService interface {
 }
 
 type appealService struct {
-	db         *sqlx.DB
-	appealRepo repository.AppealRepository
-	teamRepo   repository.TeamRepository
-	clientRepo repository.ClientRepository
-	slotRepo   repository.SlotRepository
+	db              *sqlx.DB
+	appealRepo      repository.AppealRepository
+	teamRepo        repository.TeamRepository
+	clientRepo      repository.ClientRepository
+	slotRepo        repository.SlotRepository
+	workflowService workflow.WorkflowService
 }
 
 // NewAppealService returns a new AppealService.
-func NewAppealService(db *sqlx.DB, appealRepo repository.AppealRepository, teamRepo repository.TeamRepository, clientRepo repository.ClientRepository, slotRepo repository.SlotRepository) AppealService {
+func NewAppealService(db *sqlx.DB, appealRepo repository.AppealRepository, teamRepo repository.TeamRepository, clientRepo repository.ClientRepository, slotRepo repository.SlotRepository, workflowService workflow.WorkflowService) AppealService {
 	return &appealService{
-		db:         db,
-		appealRepo: appealRepo,
-		teamRepo:   teamRepo,
-		clientRepo: clientRepo,
-		slotRepo:   slotRepo,
+		db:              db,
+		appealRepo:      appealRepo,
+		teamRepo:        teamRepo,
+		clientRepo:      clientRepo,
+		slotRepo:        slotRepo,
+		workflowService: workflowService,
 	}
 }
 
@@ -71,7 +75,7 @@ func (s *appealService) Create(a model.Appeal) (model.Appeal, error) {
 		return model.Appeal{}, fmt.Errorf("Не удалось найти клиента: %s", err.Error())
 	}
 
-	team, err := s.teamRepo.GetTeamByThemeSubtheme(createdAppeal.ThemeID, createdAppeal.SubthemeID, client.IsVIP)
+	_, err = s.teamRepo.GetTeamByThemeSubtheme(createdAppeal.ThemeID, createdAppeal.SubthemeID, client.IsVIP)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return model.Appeal{}, fmt.Errorf("Не удалось найти команду: %s", err.Error())
 	}
@@ -84,13 +88,21 @@ func (s *appealService) Create(a model.Appeal) (model.Appeal, error) {
 		createdAppeal.TeamID = &defaultTeam.ID
 	}
 
-	// Запускаем workflow
-
-	slog.Warn(fmt.Sprintf("Appeals team: %+v", team))
+	slog.Warn(fmt.Sprintf("BEFORE WORKFLOW: %+v", createdAppeal))
 
 	if err = tx.Commit(); err != nil {
 		return model.Appeal{}, fmt.Errorf("appealService.Create commit transaction: %w", err)
 	}
+
+	s.workflowService.Run(map[string]interface{}{
+		"appealId":                        createdAppeal.ID,
+		string(workflow.ThemeId):          createdAppeal.ThemeID,
+		string(workflow.Text):             createdAppeal.Text,
+		string(workflow.MessageCreatedAt): time.Now().Format(time.RFC3339),
+		string(workflow.ClientEmail):      client.Email,
+	})
+
+	slog.Warn("WORKFLOWS FINISHED")
 
 	return createdAppeal, nil
 }

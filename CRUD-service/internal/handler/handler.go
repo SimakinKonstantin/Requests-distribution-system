@@ -66,6 +66,7 @@ func (h *Handler) InitRoutes() http.Handler {
 
 	mux.HandleFunc("/clients", h.clientsCollection)
 	mux.HandleFunc("/clients/", h.clientsResource)
+	mux.HandleFunc("/clients/emails", h.clientsEmailResource)
 
 	mux.HandleFunc("/themes", h.themesCollection)
 	mux.HandleFunc("/themes/", h.themesResource)
@@ -74,6 +75,7 @@ func (h *Handler) InitRoutes() http.Handler {
 	mux.HandleFunc("/teams/", h.teamsResource)
 
 	mux.HandleFunc("/workflows", h.workflowsCollection)
+	mux.HandleFunc("/workflows/", h.workflowsResource)
 
 	return corsMiddleware(mux)
 }
@@ -472,6 +474,20 @@ func (h *Handler) clientsResource(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) clientsEmailResource(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	emails, err := h.clients.GetEmails()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, emails)
+}
+
 // ─── Theme ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) themesCollection(w http.ResponseWriter, r *http.Request) {
@@ -610,16 +626,53 @@ func (h *Handler) workflowsCollection(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, items)
 	case http.MethodPost:
 		var wf workflow.Workflow
-		if err := json.NewDecoder(r.Body).Decode(&w); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&wf); err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
+
 		created, err := h.workflows.AddWorkflow(wf)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, http.StatusCreated, created)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *Handler) workflowsResource(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r, "/workflows/")
+	if !ok {
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		item, err := h.workflows.GetWorkflowById(id)
+		if err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	case http.MethodPut:
+		var wf workflow.Workflow
+		if err := json.NewDecoder(r.Body).Decode(&wf); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		updated, err := h.workflows.UpdateWorkflow(id, wf)
+		if err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, updated)
+	case http.MethodDelete:
+		if err := h.workflows.DeleteWorkflow(id); err != nil {
+			notFoundOrInternal(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
