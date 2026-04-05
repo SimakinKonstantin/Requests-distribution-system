@@ -13,9 +13,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-const DEFAULT_TEAM_NAME_NOT_VIP = "Не распределенные"
-const DEFAULT_TEAM_NAME_VIP = "Не распределенные VIP"
-
 // AppealService defines business-logic operations for Appeal.
 type AppealService interface {
 	GetAll() ([]model.Appeal, error)
@@ -33,10 +30,11 @@ type appealService struct {
 	clientRepo      repository.ClientRepository
 	slotRepo        repository.SlotRepository
 	workflowService workflow.WorkflowService
+	teamService     TeamService
 }
 
 // NewAppealService returns a new AppealService.
-func NewAppealService(db *sqlx.DB, appealRepo repository.AppealRepository, teamRepo repository.TeamRepository, clientRepo repository.ClientRepository, slotRepo repository.SlotRepository, workflowService workflow.WorkflowService) AppealService {
+func NewAppealService(db *sqlx.DB, appealRepo repository.AppealRepository, teamRepo repository.TeamRepository, clientRepo repository.ClientRepository, slotRepo repository.SlotRepository, workflowService workflow.WorkflowService, teamService TeamService) AppealService {
 	return &appealService{
 		db:              db,
 		appealRepo:      appealRepo,
@@ -44,6 +42,7 @@ func NewAppealService(db *sqlx.DB, appealRepo repository.AppealRepository, teamR
 		clientRepo:      clientRepo,
 		slotRepo:        slotRepo,
 		workflowService: workflowService,
+		teamService:     teamService,
 	}
 }
 
@@ -82,7 +81,7 @@ func (s *appealService) Create(a model.Appeal) (model.Appeal, error) {
 	}
 
 	if errors.Is(err, sql.ErrNoRows) {
-		defaultTeam, err := s.teamRepo.GetTeamByName(DEFAULT_TEAM_NAME)
+		defaultTeam, err := s.teamService.GetTeam(a.ThemeID, a.SubthemeID, client.IsVIP)
 		if err != nil {
 			return model.Appeal{}, fmt.Errorf("Не удалось найти команду: %s", err.Error())
 		}

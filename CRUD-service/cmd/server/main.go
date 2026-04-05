@@ -40,7 +40,7 @@ func main() {
 	themeSvc := service.NewThemeService(database, themeRepo)
 	teamSvc := service.NewTeamService(database, teamRepo)
 	workflowSvc := workflow.NewWorkflowService(workflowRepo, teamSvc)
-	appealSvc := service.NewAppealService(database, appealRepo, teamRepo, clientRepo, slotRepo, workflowSvc)
+	appealSvc := service.NewAppealService(database, appealRepo, teamRepo, clientRepo, slotRepo, workflowSvc, teamSvc)
 
 	// Handler & routes
 	h := handler.New(employeeSvc, slotSvc, appealSvc, subthemeSvc, clientSvc, themeSvc, teamSvc, workflowSvc)

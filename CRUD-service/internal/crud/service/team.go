@@ -3,6 +3,8 @@ package service
 import (
 	"crud-service/internal/crud/model"
 	"crud-service/internal/crud/repository"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -15,6 +17,7 @@ type TeamService interface {
 	Update(id int, s model.Team) (model.Team, error)
 	Delete(id int) error
 	AssignTeam(appealId int, teamId int) error
+	GetTeam(themeID int, subthemeID *int, isVIP bool) (team model.Team, err error)
 }
 
 type teamService struct {
@@ -112,4 +115,34 @@ func (s *teamService) AssignTeam(appealId int, teamId int) error {
 		return fmt.Errorf("teamService.AssignTeam commit transaction: %w", err)
 	}
 	return nil
+}
+
+const DEFAULT_TEAM_NAME_NOT_VIP = "Не распределенные"
+const DEFAULT_TEAM_NAME_VIP = "Не распределенные VIP"
+
+func (s *teamService) GetTeam(themeID int, subthemeID *int, isVIP bool) (team model.Team, err error) {
+	// Пробуем получить команду.
+	team, err = s.repo.GetTeamByThemeSubtheme(themeID, subthemeID, isVIP)
+	if errors.Is(err, sql.ErrNoRows) {
+
+		// Если такой команды нет, то пробуем получить игнорируя подтему.
+		team, err = s.repo.GetTeamByThemeSubtheme(themeID, nil, isVIP)
+		if errors.Is(err, sql.ErrNoRows) {
+			if isVIP {
+				team, err = s.repo.GetTeamByName(DEFAULT_TEAM_NAME_VIP)
+
+			} else {
+				team, err = s.repo.GetTeamByName(DEFAULT_TEAM_NAME_NOT_VIP)
+			}
+		}
+
+		if err != nil {
+			return team, fmt.Errorf("teamService.GetTeam error finding team: %w", err)
+		}
+	}
+	if err != nil {
+		return team, fmt.Errorf("teamService.GetTeam error finding team: %w", err)
+	}
+
+	return
 }
