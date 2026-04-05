@@ -86,6 +86,9 @@ func changeBoolResult(curValue, value bool, operator ConditionGroupOperator) (bo
 }
 
 func (c *conditionBlock) checkPredicate(predicate Predicate, payload map[string]interface{}) bool {
+
+	slog.Warn(fmt.Sprintf("CHECKING PREDICATE WITH VALUES: %+v", predicate.Values))
+
 	if predicate.Attribute == nil || predicate.Comparison == nil {
 		slog.Error("Predicate has nil field")
 		return false

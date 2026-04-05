@@ -10,21 +10,21 @@ import TeamsPage from './pages/TeamsPage'
 import WorkflowsPage from './pages/WorkflowsPage'
 
 const navItems = [
-  { to: '/employees', label: '👤 Сотрудники' },
-  { to: '/clients',   label: '🙋 Клиенты' },
-  { to: '/themes',    label: '🗂️ Темы' },
-  { to: '/subthemes', label: '🏷️ Подтемы' },
-  { to: '/appeals',   label: '📋 Обращения' },
-  { to: '/slots',     label: '🔲 Слоты' },
-  { to: '/teams',     label: '👥 Команды' },
-  { to: '/workflows', label: '⚙️ Воркфлоу' },
+  { to: '/employees', label: 'Сотрудники' },
+  { to: '/clients',   label: 'Клиенты' },
+  { to: '/themes',    label: 'Темы' },
+  { to: '/subthemes', label: 'Подтемы' },
+  { to: '/appeals',   label: 'Обращения' },
+  { to: '/slots',     label: 'Слоты' },
+  { to: '/teams',     label: 'Команды' },
+  { to: '/workflows', label: 'Воркфлоу' },
 ]
 
 export default function App() {
   return (
     <div style={layout}>
       <aside style={sidebar}>
-        <div style={logo}>ADS</div>
+        <div style={logo}>Система распределения обращений</div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {navItems.map(({ to, label }) => (
             <NavLink key={to} to={to} style={({ isActive }) => ({ ...navLink, ...(isActive ? navActive : {}) })}>

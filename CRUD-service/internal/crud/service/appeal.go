@@ -85,7 +85,11 @@ func (s *appealService) Create(a model.Appeal) (model.Appeal, error) {
 		if err != nil {
 			return model.Appeal{}, fmt.Errorf("Не удалось найти команду: %s", err.Error())
 		}
-		createdAppeal.TeamID = &defaultTeam.ID
+
+		err = s.teamRepo.AssignTeam(tx, createdAppeal.ID, defaultTeam.ID)
+		if err != nil {
+			return model.Appeal{}, fmt.Errorf("Не удалось назначить команду: %s", err.Error())
+		}
 	}
 
 	slog.Warn(fmt.Sprintf("BEFORE WORKFLOW: %+v", createdAppeal))
@@ -157,6 +161,13 @@ func (s *appealService) Close(id int) error {
 	}
 
 	defer func() {
+		if err == nil || errors.Is(err, sql.ErrNoRows) {
+			err = tx.Commit()
+			if err != nil {
+				slog.Error(fmt.Sprintf("Error committing transaction: %v", err))
+			}
+		}
+
 		if err != nil {
 			tx.Rollback()
 		}
@@ -208,10 +219,6 @@ func (s *appealService) Close(id int) error {
 	_, err = s.slotRepo.Update(tx, slot.ID, model.Slot{EmployeeID: slot.EmployeeID, AppealID: nil, NeedToRemove: false})
 	if err != nil {
 		return fmt.Errorf("appealService.Close update slot: %w", err)
-	}
-
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("appealService.Close commit transaction: %w", err)
 	}
 
 	return nil

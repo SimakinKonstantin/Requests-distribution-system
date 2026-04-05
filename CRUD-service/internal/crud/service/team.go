@@ -95,5 +95,21 @@ func (s *teamService) Delete(id int) error {
 }
 
 func (s *teamService) AssignTeam(appealId int, teamId int) error {
-	return s.repo.AssignTeam(appealId, teamId)
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("teamService.AssignTeam start transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+	err = s.repo.AssignTeam(tx, appealId, teamId)
+	if err != nil {
+		return fmt.Errorf("teamService.AssignTeam: %w", err)
+	}
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("teamService.AssignTeam commit transaction: %w", err)
+	}
+	return nil
 }

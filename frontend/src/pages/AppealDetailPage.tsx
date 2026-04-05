@@ -49,7 +49,6 @@ export default function AppealDetailPage() {
 
   // Закрытие обращения
   const handleClose = async () => {
-    if (!window.confirm('Закрыть обращение? Это действие нельзя отменить.')) return
     setClosing(true)
     try {
       const updated = await appealApi.close(appealId)

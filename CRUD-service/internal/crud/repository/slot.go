@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -127,30 +125,48 @@ func (r *slotRepo) GetSlotsCount(employeeID int) (int, error) {
 }
 
 func (r *slotRepo) GetNeedToRemoveSlots(employeeID int) ([]model.Slot, error) {
-	var slots []model.Slot
+	var slots []slotDB
+
 	err := r.db.Select(&slots, `SELECT id, employee_id, appeal_id FROM slots WHERE employee_id = $1 AND need_to_remove = TRUE`, employeeID)
 	if err != nil {
 		return nil, fmt.Errorf("slotRepo.GetNeedToRemoveSlots: %w", err)
 	}
-	return slots, nil
+
+	result := make([]model.Slot, len(slots))
+	for i, slot := range slots {
+		result[i] = slot.toDomain()
+	}
+	return result, nil
 }
 
 func (r *slotRepo) GetRealSlots(employeeID int) ([]model.Slot, error) {
-	var slots []model.Slot
+	var slots []slotDB
+
 	err := r.db.Select(&slots, `SELECT id, employee_id, appeal_id FROM slots WHERE employee_id = $1 AND need_to_remove = FALSE`, employeeID)
 	if err != nil {
 		return nil, fmt.Errorf("slotRepo.GetRealSlots: %w", err)
 	}
-	return slots, nil
+
+	result := make([]model.Slot, len(slots))
+	for i, slot := range slots {
+		result[i] = slot.toDomain()
+	}
+	return result, nil
 }
 
 func (r *slotRepo) GetFreeSlots(employeeID int) ([]model.Slot, error) {
-	var slots []model.Slot
+	var slots []slotDB
+
 	err := r.db.Select(&slots, `SELECT id, employee_id, appeal_id FROM slots WHERE employee_id = $1 AND appeal_id IS NULL`, employeeID)
 	if err != nil {
 		return nil, fmt.Errorf("slotRepo.GetRealSlots: %w", err)
 	}
-	return slots, nil
+
+	result := make([]model.Slot, len(slots))
+	for i, slot := range slots {
+		result[i] = slot.toDomain()
+	}
+	return result, nil
 }
 
 func (r *slotRepo) SetNeedToRemoveValue(tx *sqlx.Tx, slot model.Slot, value bool) error {
@@ -162,23 +178,22 @@ func (r *slotRepo) SetNeedToRemoveValue(tx *sqlx.Tx, slot model.Slot, value bool
 }
 
 func (r *slotRepo) GetSlotByAppealID(appealID int) (model.Slot, error) {
-	var slot model.Slot
+	var slot slotDB
 	err := r.db.Get(&slot, `SELECT id, employee_id, appeal_id FROM slots WHERE appeal_id = $1`, appealID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return model.Slot{}, nil
-	}
 
 	if err != nil {
 		return model.Slot{}, fmt.Errorf("slotRepo.GetSlotByAppealID: %w", err)
 	}
-	return slot, nil
+	return slot.toDomain(), nil
 }
 
 func (r *slotRepo) GetNeedToRemoveSlot(employeeID int) (model.Slot, error) {
-	var slot model.Slot
+	var slot slotDB
+
 	err := r.db.Get(&slot, `SELECT id, employee_id, appeal_id FROM slots WHERE employee_id = $1 AND need_to_remove = TRUE`, employeeID)
 	if err != nil {
 		return model.Slot{}, fmt.Errorf("slotRepo.GetNeedToRemoveSlot: %w", err)
 	}
-	return slot, nil
+
+	return slot.toDomain(), nil
 }

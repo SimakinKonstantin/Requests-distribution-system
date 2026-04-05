@@ -7,6 +7,8 @@ import (
 	"crud-service/internal/workflow"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -304,6 +306,7 @@ func (h *Handler) appealsResource(w http.ResponseWriter, r *http.Request) {
 		}
 		err = h.appeals.Close(id)
 		if err != nil {
+			slog.Error(fmt.Sprintf("Error closing appeal: %v", err))
 			notFoundOrInternal(w, err)
 			return
 		}
