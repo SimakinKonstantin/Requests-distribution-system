@@ -13,7 +13,8 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-const DEFAULT_TEAM_NAME = "Не распределенные"
+const DEFAULT_TEAM_NAME_NOT_VIP = "Не распределенные"
+const DEFAULT_TEAM_NAME_VIP = "Не распределенные VIP"
 
 // AppealService defines business-logic operations for Appeal.
 type AppealService interface {
