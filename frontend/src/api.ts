@@ -94,14 +94,10 @@ export const subthemeApi = {
 export const teamApi = {
   getAll: () => request<Team[]>('/teams'),
   getById: (id: number) => request<Team>(`/teams/${id}`),
-  create: (data: Omit<Team, 'id'>) => {
-    const payload = { name: data.name, ThemeSubtheme: data.themeSubtheme ?? [] }
-    return request<Team>('/teams', { method: 'POST', body: JSON.stringify(payload) })
-  },
-  update: (id: number, data: Omit<Team, 'id'>) => {
-    const payload = { name: data.name, ThemeSubtheme: data.themeSubtheme ?? [] }
-    return request<Team>(`/teams/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
-  },
+  create: (data: Omit<Team, 'id'>) =>
+    request<Team>('/teams', { method: 'POST', body: JSON.stringify({ name: data.name, themeSubtheme: data.themeSubtheme ?? [] }) }),
+  update: (id: number, data: Omit<Team, 'id'>) =>
+    request<Team>(`/teams/${id}`, { method: 'PUT', body: JSON.stringify({ name: data.name, themeSubtheme: data.themeSubtheme ?? [] }) }),
   delete: (id: number) => request<void>(`/teams/${id}`, { method: 'DELETE' }),
 }
 

@@ -2,7 +2,7 @@ package model
 
 type ThemeSubtheme struct {
 	ThemeID    int  `json:"themeId"`
-	SubthemeID int  `json:"subthemeId"`
+	SubthemeID *int `json:"subthemeId"`
 	ForVip     bool `json:"forVip"`
 }
 

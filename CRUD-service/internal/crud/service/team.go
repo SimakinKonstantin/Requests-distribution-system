@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -122,11 +123,19 @@ const DEFAULT_TEAM_NAME_VIP = "Не распределенные VIP"
 
 func (s *teamService) GetTeam(themeID int, subthemeID *int, isVIP bool) (team model.Team, err error) {
 	// Пробуем получить команду.
+
+	slog.Warn(fmt.Sprintf("themeID: %d, subthemeID: %d, isVIP: %t", themeID, subthemeID, isVIP))
+	if subthemeID != nil {
+		slog.Warn(fmt.Sprintf("subthemeID: %d", *subthemeID))
+	}
+
 	team, err = s.repo.GetTeamByThemeSubtheme(themeID, subthemeID, isVIP)
+	slog.Warn(fmt.Sprintf("team1: %+v", team))
 	if errors.Is(err, sql.ErrNoRows) {
 
 		// Если такой команды нет, то пробуем получить игнорируя подтему.
 		team, err = s.repo.GetTeamByThemeSubtheme(themeID, nil, isVIP)
+		slog.Warn(fmt.Sprintf("team2: %+v", team))
 		if errors.Is(err, sql.ErrNoRows) {
 			if isVIP {
 				team, err = s.repo.GetTeamByName(DEFAULT_TEAM_NAME_VIP)
@@ -135,6 +144,7 @@ func (s *teamService) GetTeam(themeID int, subthemeID *int, isVIP bool) (team mo
 				team, err = s.repo.GetTeamByName(DEFAULT_TEAM_NAME_NOT_VIP)
 			}
 		}
+		slog.Warn(fmt.Sprintf("team3: %+v", team))
 
 		if err != nil {
 			return team, fmt.Errorf("teamService.GetTeam error finding team: %w", err)

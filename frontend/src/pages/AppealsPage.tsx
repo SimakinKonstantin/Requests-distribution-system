@@ -7,8 +7,8 @@ import Modal from '../components/Modal'
 import type { Appeal, Client, Employee, Subtheme, Theme } from '../types'
 
 // status not set on create -- backend defaults to 'active'
-type CreateForm = Omit<Appeal, 'id' | 'employeeId' | 'status'>
-const emptyCreate: CreateForm = { clientId: 0, themeId: 0, subthemeId: 0, text: '' }
+type CreateForm = { clientId: number; themeId: number; subthemeId: number | null; text: string }
+const emptyCreate: CreateForm = { clientId: 0, themeId: 0, subthemeId: null, text: '' }
 type EditForm = Omit<Appeal, 'id'>
 
 const POLL_MS = 3000
@@ -48,7 +48,7 @@ export default function AppealsPage() {
   const [editModal, setEditModal] = useState(false)
   const [editing, setEditing] = useState<Appeal | null>(null)
   const [editForm, setEditForm] = useState<EditForm>({
-    clientId: 0, employeeId: null, themeId: 0, subthemeId: 0, text: '', status: 'active',
+    clientId: 0, employeeId: null, themeId: 0, subthemeId: null, text: '', status: 'active',
   })
   const openEdit = (item: Appeal) => {
     setEditing(item)
@@ -177,9 +177,12 @@ export default function AppealsPage() {
               </select>
             </label>
             <label style={labelS}>Подтема
-              <select style={input} value={createForm.subthemeId}
-                onChange={e => setC('subthemeId', Number(e.target.value))} required>
-                <option value={0} disabled>- выберите подтему -</option>
+              <select style={input} value={createForm.subthemeId ?? 0}
+                onChange={e => {
+                  const v = Number(e.target.value)
+                  setC('subthemeId', v === 0 ? null : v)
+                }}>
+                <option value={0}>- нет -</option>
                 {subthemes.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>
@@ -227,9 +230,12 @@ export default function AppealsPage() {
               </select>
             </label>
             <label style={labelS}>Подтема
-              <select style={input} value={editForm.subthemeId}
-                onChange={e => setE('subthemeId', Number(e.target.value))} required>
-                <option value={0} disabled>- выберите подтему -</option>
+              <select style={input} value={editForm.subthemeId ?? 0}
+                onChange={e => {
+                  const v = Number(e.target.value)
+                  setE('subthemeId', v === 0 ? null : v)
+                }}>
+                <option value={0}>- нет -</option>
                 {subthemes.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>

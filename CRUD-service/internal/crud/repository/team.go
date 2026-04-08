@@ -2,7 +2,7 @@ package repository
 
 import (
 	"fmt"
-	"slices"
+	"log/slog"
 
 	"github.com/jmoiron/sqlx"
 
@@ -11,7 +11,7 @@ import (
 
 type ThemeSubthemeDB struct {
 	ThemeID    int  `db:"theme_id"`
-	SubthemeID int  `db:"subtheme_id"`
+	SubthemeID *int `db:"subtheme_id"`
 	ForVip     bool `db:"for_vip"`
 }
 
@@ -23,16 +23,24 @@ type teamDB struct {
 
 func toTeamDB(t model.Team) teamDB {
 	result := teamDB{ID: t.ID, Name: t.Name}
-	for _, themeSubtheme := range t.ThemeSubtheme {
-		result.ThemeSubtheme = append(result.ThemeSubtheme, ThemeSubthemeDB{ThemeID: themeSubtheme.ThemeID, SubthemeID: themeSubtheme.SubthemeID, ForVip: themeSubtheme.ForVip})
+	for _, ts := range t.ThemeSubtheme {
+		result.ThemeSubtheme = append(result.ThemeSubtheme, ThemeSubthemeDB{
+			ThemeID:    ts.ThemeID,
+			SubthemeID: ts.SubthemeID,
+			ForVip:     ts.ForVip,
+		})
 	}
 	return result
 }
 
 func (t teamDB) toDomain() model.Team {
 	result := model.Team{ID: t.ID, Name: t.Name}
-	for _, themeSubtheme := range t.ThemeSubtheme {
-		result.ThemeSubtheme = append(result.ThemeSubtheme, model.ThemeSubtheme{ThemeID: themeSubtheme.ThemeID, SubthemeID: themeSubtheme.SubthemeID, ForVip: themeSubtheme.ForVip})
+	for _, ts := range t.ThemeSubtheme {
+		result.ThemeSubtheme = append(result.ThemeSubtheme, model.ThemeSubtheme{
+			ThemeID:    ts.ThemeID,
+			SubthemeID: ts.SubthemeID,
+			ForVip:     ts.ForVip,
+		})
 	}
 	return result
 }
@@ -124,50 +132,49 @@ func (r *teamRepo) Create(tx *sqlx.Tx, t model.Team) (model.Team, error) {
 
 func (r *teamRepo) Update(tx *sqlx.Tx, id int, t model.Team) (model.Team, error) {
 	teamInfo := toTeamDB(t)
+	teamInfo.ID = id
 	var err error
 
 	_, err = tx.Exec(
 		`UPDATE teams SET name=$1 WHERE id=$2`,
 		teamInfo.Name,
-		teamInfo.ID,
+		id,
 	)
 	if err != nil {
 		return model.Team{}, fmt.Errorf("teamRepo.Update teams: %w", err)
 	}
 
 	var currentThemes []ThemeSubthemeDB
-	err = tx.Select(&currentThemes, `SELECT theme_id, subtheme_id FROM teams_themes WHERE team_id = $1`, teamInfo.ID)
+	err = tx.Select(&currentThemes, `SELECT theme_id, subtheme_id, for_vip FROM teams_themes WHERE team_id = $1`, id)
 	if err != nil {
 		return model.Team{}, fmt.Errorf("teamRepo.Update teams_themes: %w", err)
 	}
 
-	for _, themeSubtheme := range teamInfo.ThemeSubtheme {
-		if !slices.Contains(currentThemes, themeSubtheme) {
-			_, err = tx.Exec(
-				`INSERT INTO teams_themes (team_id, theme_id, subtheme_id, for_vip) VALUES ($1, $2, $3, $4)`,
-				teamInfo.ID,
-				themeSubtheme.ThemeID,
-				themeSubtheme.SubthemeID,
-				themeSubtheme.ForVip,
-			)
-		}
+	// Перезаписываем темы и подтемы
+	for _, themeSubtheme := range currentThemes {
+		_, err = tx.Exec(
+			`DELETE FROM teams_themes WHERE team_id=$1 AND theme_id = $2 AND subtheme_id = $3`,
+			id,
+			themeSubtheme.ThemeID,
+			themeSubtheme.SubthemeID,
+		)
 		if err != nil {
 			return model.Team{}, fmt.Errorf("teamRepo.Update teams_themes: %w", err)
 		}
 	}
 
-	// Удаляем лишние темы
-	for _, themeSubtheme := range currentThemes {
-		if !slices.Contains(teamInfo.ThemeSubtheme, themeSubtheme) {
-			_, err = tx.Exec(
-				`DELETE FROM teams_themes WHERE team_id=$1 AND theme_id = $2 AND subtheme_id = $3`,
-				teamInfo.ID,
-				themeSubtheme.ThemeID,
-				themeSubtheme.SubthemeID,
-			)
-			if err != nil {
-				return model.Team{}, fmt.Errorf("teamRepo.Update teams_themes: %w", err)
-			}
+	for _, themeSubtheme := range teamInfo.ThemeSubtheme {
+		slog.Warn(fmt.Sprintf("Добавляем тему и подтему: %+v", themeSubtheme))
+
+		_, err = tx.Exec(
+			`INSERT INTO teams_themes (team_id, theme_id, subtheme_id, for_vip) VALUES ($1, $2, $3, $4)`,
+			id,
+			themeSubtheme.ThemeID,
+			themeSubtheme.SubthemeID,
+			themeSubtheme.ForVip,
+		)
+		if err != nil {
+			return model.Team{}, fmt.Errorf("teamRepo.Update teams_themes: %w", err)
 		}
 	}
 
@@ -190,18 +197,27 @@ func (r *teamRepo) Delete(tx *sqlx.Tx, id int) error {
 func (r *teamRepo) fillThemesSubthemes(team teamDB) (teamDB, error) {
 	result := team
 
-	err := r.db.Select(&result.ThemeSubtheme, `SELECT theme_id, subtheme_id FROM teams_themes WHERE team_id = $1`, team.ID)
+	err := r.db.Select(&result.ThemeSubtheme, `SELECT theme_id, subtheme_id, for_vip FROM teams_themes WHERE team_id = $1`, team.ID)
 	if err != nil {
 		return teamDB{}, fmt.Errorf("teamRepo.getThemesSubthemes teams_themes: %w", err)
 	}
+
+	slog.Warn(fmt.Sprintf("result.ThemeSubtheme: %+v", result.ThemeSubtheme))
 
 	return teamDB{ID: team.ID, Name: team.Name, ThemeSubtheme: result.ThemeSubtheme}, nil
 }
 
 func (r *teamRepo) GetTeamByThemeSubtheme(themeID int, subthemeID *int, isVIP bool) (model.Team, error) {
 	var teamID int
-	if err := r.db.Get(&teamID, `SELECT team_id FROM teams_themes WHERE theme_id = $1 AND subtheme_id = $2 AND for_vip = $3`, themeID, subthemeID, isVIP); err != nil {
-		return model.Team{}, fmt.Errorf("teamRepo.GetTeamByThemeSubtheme: %w", err)
+
+	if subthemeID != nil {
+		if err := r.db.Get(&teamID, `SELECT team_id FROM teams_themes WHERE theme_id = $1 AND subtheme_id = $2 AND for_vip = $3`, themeID, subthemeID, isVIP); err != nil {
+			return model.Team{}, fmt.Errorf("teamRepo.GetTeamByThemeSubtheme: %w", err)
+		}
+	} else {
+		if err := r.db.Get(&teamID, `SELECT team_id FROM teams_themes WHERE theme_id = $1 AND subtheme_id is null AND for_vip = $2`, themeID, isVIP); err != nil {
+			return model.Team{}, fmt.Errorf("teamRepo.GetTeamByThemeSubtheme: %w", err)
+		}
 	}
 
 	team, err := r.GetByID(teamID)

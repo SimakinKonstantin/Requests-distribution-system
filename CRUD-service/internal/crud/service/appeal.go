@@ -65,6 +65,8 @@ func (s *appealService) Create(a model.Appeal) (model.Appeal, error) {
 		}
 	}()
 
+	slog.Info("}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
+
 	createdAppeal, err := s.appealRepo.Create(tx, a)
 	if err != nil {
 		return model.Appeal{}, fmt.Errorf("Не удалось создать обращение: %s", err.Error())
@@ -75,21 +77,14 @@ func (s *appealService) Create(a model.Appeal) (model.Appeal, error) {
 		return model.Appeal{}, fmt.Errorf("Не удалось найти клиента: %s", err.Error())
 	}
 
-	_, err = s.teamRepo.GetTeamByThemeSubtheme(createdAppeal.ThemeID, createdAppeal.SubthemeID, client.IsVIP)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	newTeam, err := s.teamService.GetTeam(a.ThemeID, a.SubthemeID, client.IsVIP)
+	if err != nil {
 		return model.Appeal{}, fmt.Errorf("Не удалось найти команду: %s", err.Error())
 	}
 
-	if errors.Is(err, sql.ErrNoRows) {
-		defaultTeam, err := s.teamService.GetTeam(a.ThemeID, a.SubthemeID, client.IsVIP)
-		if err != nil {
-			return model.Appeal{}, fmt.Errorf("Не удалось найти команду: %s", err.Error())
-		}
-
-		err = s.teamRepo.AssignTeam(tx, createdAppeal.ID, defaultTeam.ID)
-		if err != nil {
-			return model.Appeal{}, fmt.Errorf("Не удалось назначить команду: %s", err.Error())
-		}
+	err = s.teamRepo.AssignTeam(tx, createdAppeal.ID, newTeam.ID)
+	if err != nil {
+		return model.Appeal{}, fmt.Errorf("Не удалось назначить команду: %s", err.Error())
 	}
 
 	slog.Warn(fmt.Sprintf("BEFORE WORKFLOW: %+v", createdAppeal))

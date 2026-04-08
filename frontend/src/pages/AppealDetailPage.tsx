@@ -64,7 +64,7 @@ export default function AppealDetailPage() {
   const clientEmail   = (id: number) => clients.find(c => c.id === id)?.email   ?? `#${id}`
   const employeeEmail = (id: number) => employees.find(e => e.id === id)?.email ?? `#${id}`
   const themeName     = (id: number) => themes.find(t => t.id === id)?.name     ?? `#${id}`
-  const subthemeName  = (id: number) => subthemes.find(s => s.id === id)?.name  ?? `#${id}`
+  const subthemeName  = (id: number | null) => id == null ? '—' : (subthemes.find(s => s.id === id)?.name  ?? `#${id}`)
 
   if (loading) return <div style={page}><p>Загрузка...</p></div>
   if (error)   return <div style={page}><p style={{ color: 'red' }}>{error}</p></div>

@@ -41,24 +41,21 @@ export interface Appeal {
   clientId: number
   employeeId: number | null
   themeId: number
-  subthemeId: number
+  subthemeId: number | null
   text: string
   status: 'active' | 'closed'
 }
 
 // Teams (для вкладки Teams)
 export interface TeamThemeSubtheme {
-  theme_id: number
-  subtheme_id: number
-  for_vip: boolean
+  themeId: number
+  subthemeId: number | null
+  forVip: boolean
 }
 export interface Team {
   id: number
   name: string
-  // backend может присылать themeSubtheme/null
   themeSubtheme?: TeamThemeSubtheme[] | null
-  // и/или "ThemeSubtheme" (без json-тэга) — обработаем на уровне UI
-  // ThemeSubtheme?: TeamThemeSubtheme[] | null
 }
 
 export type WorkflowStatus = 'active' | 'paused'

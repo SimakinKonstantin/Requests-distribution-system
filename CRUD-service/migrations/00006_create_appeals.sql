@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS appeals (
     client_id   INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
     employee_id INTEGER      REFERENCES employees(id) ON DELETE CASCADE,
     theme_id    INTEGER NOT NULL REFERENCES themes(id) ON DELETE CASCADE,
-    subtheme_id INTEGER NOT NULL REFERENCES subthemes(id) ON DELETE CASCADE,
+    subtheme_id INTEGER REFERENCES subthemes(id) ON DELETE CASCADE,
     text        TEXT    NOT NULL,
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'closed')),
     team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE

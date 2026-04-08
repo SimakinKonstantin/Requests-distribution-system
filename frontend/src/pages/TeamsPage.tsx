@@ -4,54 +4,74 @@ import { useCrud } from '../hooks/useCrud'
 import Modal from '../components/Modal'
 import type { Team, TeamThemeSubtheme, Theme, Subtheme } from '../types'
 
-type Form = Omit<Team, 'id'>
-const empty: Form = { name: '', themeSubtheme: [] }
+type Form = { name: string; themeSubtheme: TeamThemeSubtheme[] }
+const emptyRow = (): TeamThemeSubtheme => ({ themeId: 0, subthemeId: null, forVip: false })
+const emptyForm = (): Form => ({ name: '', themeSubtheme: [] })
 
 function normalizeRows(team: Team): TeamThemeSubtheme[] {
   const rows = (team as any).themeSubtheme ?? (team as any).ThemeSubtheme
   if (!rows || !Array.isArray(rows)) return []
-  return rows
+  return rows.map((r: any) => ({
+    themeId:    r.themeId    ?? r.theme_id    ?? 0,
+    subthemeId: (r.subthemeId ?? r.subtheme_id ?? null) === 0 ? null : (r.subthemeId ?? r.subtheme_id ?? null),
+    forVip:     r.forVip     ?? r.for_vip     ?? false,
+  }))
 }
 
 export default function TeamsPage() {
   const { items, loading, error, create, update, remove } = useCrud<Team, Form>(teamApi)
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
   const [editing, setEditing] = useState<Team | null>(null)
-  const [form, setForm] = useState<Form>(empty)
-  const [row, setRow] = useState<TeamThemeSubtheme>({ theme_id: 0, subtheme_id: 0, for_vip: false })
+  const [form, setForm] = useState<Form>(emptyForm())
+  const [editLoading, setEditLoading] = useState(false)
   const [themes, setThemes] = useState<Theme[]>([])
   const [subthemes, setSubthemes] = useState<Subtheme[]>([])
 
-  // load dictionaries
+  // load dictionaries once
   useState(() => {
     themeApi.getAll().then(setThemes).catch(() => setThemes([]))
     subthemeApi.getAll().then(setSubthemes).catch(() => setSubthemes([]))
   })
 
   const openCreate = () => {
-    setForm(empty)
+    setForm(emptyForm())
     setModal('create')
   }
 
-  const openEdit = (item: Team) => {
-    setEditing(item)
-    setForm({ name: item.name, themeSubtheme: normalizeRows(item) })
+  const openEdit = async (item: Team) => {
     setModal('edit')
+    setEditLoading(true)
+    try {
+      const full = await teamApi.getById(item.id)
+      setEditing(full)
+      setForm({ name: full.name, themeSubtheme: normalizeRows(full) })
+    } catch {
+      // fallback to list item data if request fails
+      setEditing(item)
+      setForm({ name: item.name, themeSubtheme: normalizeRows(item) })
+    } finally {
+      setEditLoading(false)
+    }
   }
 
   const close = () => {
     setModal(null)
     setEditing(null)
+    setEditLoading(false)
   }
 
-  const addRow = () => {
-    if (!row.theme_id) return
-    setForm(f => ({ ...f, themeSubtheme: [...(f.themeSubtheme ?? []), row] }))
-    setRow({ theme_id: 0, subtheme_id: 0, for_vip: false })
-  }
+  // ── row helpers ──────────────────────────────────────────────────────────────
+  const addRow = () =>
+    setForm(f => ({ ...f, themeSubtheme: [...f.themeSubtheme, emptyRow()] }))
 
   const removeRow = (idx: number) =>
-    setForm(f => ({ ...f, themeSubtheme: (f.themeSubtheme ?? []).filter((_, i) => i !== idx) }))
+    setForm(f => ({ ...f, themeSubtheme: f.themeSubtheme.filter((_, i) => i !== idx) }))
+
+  const updateRow = (idx: number, patch: Partial<TeamThemeSubtheme>) =>
+    setForm(f => ({
+      ...f,
+      themeSubtheme: f.themeSubtheme.map((r, i) => i === idx ? { ...r, ...patch } : r),
+    }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,7 +93,7 @@ export default function TeamsPage() {
       <table style={styleTable}>
         <thead>
           <tr>
-            {['ID', 'Название', 'Темы / Подтемы', ''].map(h => (
+            {['ID', 'Название', ''].map(h => (
               <th key={h} style={styleTh}>{h}</th>
             ))}
           </tr>
@@ -83,20 +103,6 @@ export default function TeamsPage() {
             <tr key={item.id}>
               <td style={styleTd}>{item.id}</td>
               <td style={styleTd}>{item.name}</td>
-              <td style={styleTd}>
-                {normalizeRows(item).length === 0 ? (
-                  <span style={{ color: '#999' }}>—</span>
-                ) : (
-                  <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {normalizeRows(item).map((r, i) => (
-                      <li key={i}>
-                        theme: {r.theme_id} / subtheme: {r.subtheme_id}
-                        {r.for_vip ? ' (VIP)' : ''}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </td>
               <td style={styleTd}>
                 <button style={styleBtnSm} onClick={() => openEdit(item)}>Изменить</button>
                 <button style={{ ...styleBtnSm, ...styleBtnDanger }} onClick={() => remove(item.id)}>Удалить</button>
@@ -122,81 +128,83 @@ export default function TeamsPage() {
               />
             </label>
 
-            <div style={{ fontWeight: 600, color: '#444' }}>Темы</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              {themes.map(t => (
-                <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input
-                    type="radio"
-                    name="theme"
-                    checked={row.theme_id === t.id}
-                    onChange={() => setRow(r => ({ ...r, theme_id: t.id }))}
-                  />
-                  <span>({t.id}) {t.name}</span>
-                </label>
-              ))}
-            </div>
+            {/* ── Bindings table ── */}
+            <div style={{ fontWeight: 600, color: '#444', marginTop: 4 }}>Привязки тем / подтем</div>
 
-            <div style={{ fontWeight: 600, color: '#444', marginTop: 8 }}>Подтемы</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              <label key="none" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <input
-                  type="radio"
-                  name="subtheme"
-                  checked={row.subtheme_id === 0}
-                  onChange={() => setRow(r => ({ ...r, subtheme_id: 0 }))}
-                />
-                <span>— нет —</span>
-              </label>
-              {subthemes.map(s => (
-                <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input
-                    type="radio"
-                    name="subtheme"
-                    checked={row.subtheme_id === s.id}
-                    onChange={() => setRow(r => ({ ...r, subtheme_id: s.id }))}
-                  />
-                  <span>({s.id}) {s.name}</span>
-                </label>
-              ))}
-            </div>
+            {editLoading && modal === 'edit' && <p>Загрузка…</p>}
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-              <input
-                type="checkbox"
-                checked={row.for_vip}
-                onChange={e => setRow(r => ({ ...r, for_vip: e.target.checked }))}
-              />
-              Привязка для VIP
-            </label>
-            <button
-              type="button"
-              style={{ ...styleBtnSm, marginTop: 8 }}
-              onClick={addRow}
-              disabled={!row.theme_id}
-            >
-              Добавить привязку
-            </button>
+            {!editLoading && form.themeSubtheme.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {form.themeSubtheme.map((row, idx) => (
+                  <div key={idx} style={styleRowCard}>
+                    {/* Theme */}
+                    <label style={styleInlineLabel}>
+                      Тема
+                      <select
+                        style={styleSelect}
+                        value={row.themeId}
+                        onChange={e => updateRow(idx, { themeId: Number(e.target.value) })}
+                        required
+                      >
+                        <option value={0} disabled>— выберите —</option>
+                        {themes.map(t => (
+                          <option key={t.id} value={t.id}>({t.id}) {t.name}</option>
+                        ))}
+                      </select>
+                    </label>
 
-            {(form.themeSubtheme ?? []).length > 0 && (
-              <ul style={{ marginTop: 8, paddingLeft: 18 }}>
-                {(form.themeSubtheme ?? []).map((r, i) => (
-                  <li key={i}>
-                    theme: {r.theme_id} / subtheme: {r.subtheme_id}
-                    {r.for_vip ? ' (VIP)' : ''}
+                    {/* Subtheme */}
+                    <label style={styleInlineLabel}>
+                      Подтема
+                      <select
+                        style={styleSelect}
+                        value={row.subthemeId ?? 0}
+                        onChange={e => {
+                          const v = Number(e.target.value)
+                          updateRow(idx, { subthemeId: v === 0 ? null : v })
+                        }}
+                      >
+                        <option value={0}>— нет —</option>
+                        {subthemes.map(s => (
+                          <option key={s.id} value={s.id}>({s.id}) {s.name}</option>
+                        ))}
+                      </select>
+                    </label>
+
+                    {/* VIP */}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                      <input
+                        type="checkbox"
+                        checked={row.forVip}
+                        onChange={e => updateRow(idx, { forVip: e.target.checked })}
+                      />
+                      VIP
+                    </label>
+
+                    {/* Remove row */}
                     <button
                       type="button"
-                      style={{ ...styleBtnSm, marginLeft: 8 }}
-                      onClick={() => removeRow(i)}
+                      style={{ ...styleBtnSm, ...styleBtnDanger, marginLeft: 'auto' }}
+                      onClick={() => removeRow(idx)}
                     >
-                      Удалить
+                      ✕
                     </button>
-                  </li>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
 
-            <button style={{ ...styleBtnPrimary, marginTop: 12 }} type="submit">Сохранить</button>
+            <button
+              type="button"
+              style={{ ...styleBtnSm, alignSelf: 'flex-start' }}
+              onClick={addRow}
+            >
+              + Добавить привязку
+            </button>
+
+            <button style={{ ...styleBtnPrimary, marginTop: 8 }} type="submit" disabled={editLoading}>
+              Сохранить
+            </button>
           </form>
         </Modal>
       )}
@@ -286,4 +294,32 @@ const styleInput: React.CSSProperties = {
   borderRadius: 6,
   fontSize: 14,
   outline: 'none',
+}
+
+const styleSelect: React.CSSProperties = {
+  padding: '6px 10px',
+  border: '1px solid #ddd',
+  borderRadius: 6,
+  fontSize: 13,
+  outline: 'none',
+  background: '#fff',
+}
+
+const styleRowCard: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-end',
+  gap: 10,
+  background: '#f8f9ff',
+  borderRadius: 7,
+  padding: '10px 12px',
+  border: '1px solid #e8eaff',
+}
+
+const styleInlineLabel: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 3,
+  fontSize: 12,
+  fontWeight: 500,
+  color: '#555',
 }

@@ -280,6 +280,9 @@ func (h *Handler) appealsCollection(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
+
+		slog.Warn(fmt.Sprintf("a: %+v", a))
+
 		created, err := h.appeals.Create(a)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
