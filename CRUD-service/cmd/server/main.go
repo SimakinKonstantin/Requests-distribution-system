@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"os"
 
+	"crud-service/internal/balancer"
 	"crud-service/internal/config"
 	"crud-service/internal/crud/repository"
 	"crud-service/internal/crud/service"
@@ -14,6 +17,18 @@ import (
 
 func main() {
 	cfg := config.Load()
+
+	// Optional: run balancer subsystem inside the same process.
+	// ENABLE_BALANCER=1 starts it in background; balancer is configured via its own env vars
+	// (ROLE, POSTGRES_DSN, REDIS_ADDR, RABBIT_URL, etc).
+	//
+	// NOTE: balancer uses its own Postgres DSN env (POSTGRES_DSN). You can point it to the same DB as CRUD-service.
+	var balancerErrCh <-chan error
+	if os.Getenv("ENABLE_BALANCER") == "1" {
+		ctx := context.Background()
+		balancerErrCh = balancer.StartFromEnvInBackground(ctx)
+		log.Printf("balancer enabled (ENABLE_BALANCER=1)")
+	}
 
 	// Database connection
 	database, err := db.New(cfg.ConnectionString)
@@ -47,6 +62,16 @@ func main() {
 	router := h.InitRoutes()
 
 	log.Printf("Starting server on %s", cfg.ServerAddr)
+
+	// If balancer is enabled, we want to crash the process if it fails.
+	if balancerErrCh != nil {
+		go func() {
+			if err := <-balancerErrCh; err != nil && err != context.Canceled {
+				log.Fatalf("balancer stopped: %v", err)
+			}
+		}()
+	}
+
 	if err = http.ListenAndServe(cfg.ServerAddr, router); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

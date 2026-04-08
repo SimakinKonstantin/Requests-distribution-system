@@ -1,6 +1,6 @@
-# golang-ver (demo)
+# balancer (integrated)
 
-Упрощённая Go-версия балансировщика для демо:
+Упрощённая Go-версия балансировщика, **интегрированная в `crud-service`**:
 
 - **RabbitMQ**: входящие ивенты `APPEAL_NEEDS_DISTRIBUTION`, `APPEAL_CLOSED`
 - **asynq**: внутренняя очередь джобов (вместо BullMQ)
@@ -18,21 +18,21 @@
 1) Поднять зависимости:
 
 ```bash
-cd golang-ver
 docker compose up -d
 ```
 
-2) Запустить приложение (в той же pod/машине):
+2) Запустить CRUD-service вместе с балансировщиком (в той же pod/машине):
 
 ```bash
 # Windows PowerShell пример
+$env:ENABLE_BALANCER="1"
 $env:ROLE="all"
 $env:POSTGRES_DSN="postgres://postgres:postgres@localhost:5432/balancer_demo?sslmode=disable"
 $env:REDIS_ADDR="localhost:6379"
 $env:RABBIT_URL="amqp://guest:guest@localhost:5672/"
 $env:RABBIT_QUEUE="balancer.demo.events"
 
-go run .
+go run ./cmd/server
 ```
 
 3) Опубликовать тест-ивент (пример payload см. ниже) и посмотреть логи.

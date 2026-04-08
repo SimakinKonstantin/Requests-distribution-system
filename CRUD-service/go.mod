@@ -3,8 +3,11 @@ module crud-service
 go 1.23
 
 require (
+	github.com/hibiken/asynq v0.25.1
+	github.com/jackc/pgx/v5 v5.7.6
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lib/pq v1.10.9
+	github.com/rabbitmq/amqp091-go v1.10.0
 )
 
 require (

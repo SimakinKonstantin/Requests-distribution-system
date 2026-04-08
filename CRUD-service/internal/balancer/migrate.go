@@ -1,10 +1,13 @@
-package main
+package balancer
 
 import (
 	"context"
+	"embed"
 	"os"
-	"path/filepath"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 func applyMigrations(ctx context.Context, db *DB) error {
 	if os.Getenv("SKIP_MIGRATIONS") == "1" {
@@ -12,8 +15,7 @@ func applyMigrations(ctx context.Context, db *DB) error {
 	}
 
 	// For demo: apply a single idempotent SQL file.
-	path := filepath.Join("migrations", "001_init.sql")
-	b, err := os.ReadFile(path)
+	b, err := migrationsFS.ReadFile("migrations/001_init.sql")
 	if err != nil {
 		return err
 	}
