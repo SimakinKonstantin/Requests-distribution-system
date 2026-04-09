@@ -13,7 +13,7 @@ type managerState struct {
 	m          ManagerRow
 	active     int
 	lastAssign *time.Time
-	usedSlots  map[string]struct{}
+	usedSlots  map[int]struct{}
 }
 
 type Matcher struct {
@@ -59,7 +59,7 @@ func (m *Matcher) HandleDistributionTick(ctx context.Context, _ *asynq.Task) err
 		return nil
 	}
 
-	managerIDs := make([]string, 0, len(managers))
+	managerIDs := make([]int, 0, len(managers))
 	for _, mg := range managers {
 		managerIDs = append(managerIDs, mg.ID)
 	}
@@ -86,19 +86,16 @@ func (m *Matcher) HandleDistributionTick(ctx context.Context, _ *asynq.Task) err
 	return nil
 }
 
-// FindOptimalAssignments is a simplified port of MatchService:
-// - appeals are already ordered by DB priority, but we still group/sort deterministically
-// - managers are chosen by active appeals, last assign, oldest free slot, free slots count
-func FindOptimalAssignments(appeals []AppealRow, managers []ManagerRow, freeSlots map[string][]SlotRow) []AssignPayload {
-	// Index managers by team.
-	byTeam := make(map[string][]*managerState)
-	states := make(map[string]*managerState, len(managers))
+// FindOptimalAssignments distributes pending appeals to available managers.
+func FindOptimalAssignments(appeals []AppealRow, managers []ManagerRow, freeSlots map[int][]SlotRow) []AssignPayload {
+	byTeam := make(map[int][]*managerState)
+	states := make(map[int]*managerState, len(managers))
 	for _, mg := range managers {
 		st := &managerState{
-			m:         mg,
-			active:    mg.ActiveAppeals,
+			m:          mg,
+			active:     mg.ActiveAppeals,
 			lastAssign: mg.LastAssignAt,
-			usedSlots:  map[string]struct{}{},
+			usedSlots:  map[int]struct{}{},
 		}
 		states[mg.ID] = st
 		for _, team := range mg.TeamIDs {
@@ -106,15 +103,13 @@ func FindOptimalAssignments(appeals []AppealRow, managers []ManagerRow, freeSlot
 		}
 	}
 
-	// Stable sort managers per team by baseline criteria.
 	for team, arr := range byTeam {
 		sort.SliceStable(arr, func(i, j int) bool {
 			a, b := arr[i], arr[j]
 			if a.active != b.active {
 				return a.active < b.active
 			}
-			ai := time.Time{}
-			bi := time.Time{}
+			ai, bi := time.Time{}, time.Time{}
 			if a.lastAssign != nil {
 				ai = *a.lastAssign
 			}
@@ -144,7 +139,7 @@ func FindOptimalAssignments(appeals []AppealRow, managers []ManagerRow, freeSlot
 		}
 
 		slotID := pickOldestFreeSlot(best, freeSlots)
-		if slotID == "" {
+		if slotID == 0 {
 			continue
 		}
 
@@ -165,7 +160,7 @@ func FindOptimalAssignments(appeals []AppealRow, managers []ManagerRow, freeSlot
 	return out
 }
 
-func pickBestManager(candidates []*managerState, freeSlots map[string][]SlotRow) *managerState {
+func pickBestManager(candidates []*managerState, freeSlots map[int][]SlotRow) *managerState {
 	var best *managerState
 	for _, cur := range candidates {
 		if best == nil {
@@ -177,15 +172,13 @@ func pickBestManager(candidates []*managerState, freeSlots map[string][]SlotRow)
 		if !hasFreeSlot(cur, freeSlots) {
 			continue
 		}
-		// Compare criteria similar to TS.
 		if cur.active != best.active {
 			if cur.active < best.active {
 				best = cur
 			}
 			continue
 		}
-		curLast := time.Time{}
-		bestLast := time.Time{}
+		curLast, bestLast := time.Time{}, time.Time{}
 		if cur.lastAssign != nil {
 			curLast = *cur.lastAssign
 		}
@@ -198,9 +191,7 @@ func pickBestManager(candidates []*managerState, freeSlots map[string][]SlotRow)
 			}
 			continue
 		}
-		curOldest := oldestFreeSlotTime(cur, freeSlots)
-		bestOldest := oldestFreeSlotTime(best, freeSlots)
-		if curOldest.Before(bestOldest) {
+		if oldestFreeSlotTime(cur, freeSlots).Before(oldestFreeSlotTime(best, freeSlots)) {
 			best = cur
 			continue
 		}
@@ -211,7 +202,7 @@ func pickBestManager(candidates []*managerState, freeSlots map[string][]SlotRow)
 	return best
 }
 
-func hasFreeSlot(m *managerState, freeSlots map[string][]SlotRow) bool {
+func hasFreeSlot(m *managerState, freeSlots map[int][]SlotRow) bool {
 	for _, s := range freeSlots[m.m.ID] {
 		if _, used := m.usedSlots[s.ID]; !used {
 			return true
@@ -220,17 +211,17 @@ func hasFreeSlot(m *managerState, freeSlots map[string][]SlotRow) bool {
 	return false
 }
 
-func pickOldestFreeSlot(m *managerState, freeSlots map[string][]SlotRow) string {
+func pickOldestFreeSlot(m *managerState, freeSlots map[int][]SlotRow) int {
 	for _, s := range freeSlots[m.m.ID] {
 		if _, used := m.usedSlots[s.ID]; used {
 			continue
 		}
-		return s.ID // slots are ordered by updated_at ASC from DB
+		return s.ID
 	}
-	return ""
+	return 0
 }
 
-func oldestFreeSlotTime(m *managerState, freeSlots map[string][]SlotRow) time.Time {
+func oldestFreeSlotTime(m *managerState, freeSlots map[int][]SlotRow) time.Time {
 	for _, s := range freeSlots[m.m.ID] {
 		if _, used := m.usedSlots[s.ID]; used {
 			continue
@@ -240,7 +231,7 @@ func oldestFreeSlotTime(m *managerState, freeSlots map[string][]SlotRow) time.Ti
 	return time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC)
 }
 
-func countFreeSlots(m *managerState, freeSlots map[string][]SlotRow) int {
+func countFreeSlots(m *managerState, freeSlots map[int][]SlotRow) int {
 	n := 0
 	for _, s := range freeSlots[m.m.ID] {
 		if _, used := m.usedSlots[s.ID]; !used {
@@ -262,4 +253,3 @@ func classifyAppealPriority(a AppealRow) int {
 	}
 	return 5
 }
-

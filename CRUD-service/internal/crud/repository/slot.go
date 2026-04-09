@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 
@@ -10,25 +11,30 @@ import (
 
 // slotDB is the database-level representation of Slot.
 type slotDB struct {
-	ID           int  `db:"id"`
-	EmployeeID   int  `db:"employee_id"`
-	AppealID     *int `db:"appeal_id"`
-	NeedToRemove bool `db:"need_to_remove"`
+	ID           int        `db:"id"`
+	EmployeeID   int        `db:"employee_id"`
+	AppealID     *int       `db:"appeal_id"`
+	NeedToRemove bool       `db:"need_to_remove"`
+	UpdatedAt    *time.Time `db:"updated_at"`
 }
 
 func toSlotDB(s model.Slot) slotDB {
 	return slotDB{
-		ID:         s.ID,
-		EmployeeID: s.EmployeeID,
-		AppealID:   s.AppealID,
+		ID:           s.ID,
+		EmployeeID:   s.EmployeeID,
+		AppealID:     s.AppealID,
+		NeedToRemove: s.NeedToRemove,
+		UpdatedAt:    s.UpdatedAt,
 	}
 }
 
 func (s slotDB) toDomain() model.Slot {
 	return model.Slot{
-		ID:         s.ID,
-		EmployeeID: s.EmployeeID,
-		AppealID:   s.AppealID,
+		ID:           s.ID,
+		EmployeeID:   s.EmployeeID,
+		AppealID:     s.AppealID,
+		NeedToRemove: s.NeedToRemove,
+		UpdatedAt:    s.UpdatedAt,
 	}
 }
 
@@ -59,7 +65,7 @@ func NewSlotRepository(db *sqlx.DB) SlotRepository {
 
 func (r *slotRepo) GetAll() ([]model.Slot, error) {
 	var rows []slotDB
-	if err := r.db.Select(&rows, `SELECT id, employee_id, appeal_id FROM slots`); err != nil {
+	if err := r.db.Select(&rows, `SELECT id, employee_id, appeal_id, need_to_remove, updated_at FROM slots`); err != nil {
 		return nil, fmt.Errorf("slotRepo.GetAll: %w", err)
 	}
 
@@ -72,7 +78,7 @@ func (r *slotRepo) GetAll() ([]model.Slot, error) {
 
 func (r *slotRepo) GetByID(id int) (model.Slot, error) {
 	var row slotDB
-	err := r.db.Get(&row, `SELECT id, employee_id, appeal_id FROM slots WHERE id = $1`, id)
+	err := r.db.Get(&row, `SELECT id, employee_id, appeal_id, need_to_remove, updated_at FROM slots WHERE id = $1`, id)
 	if err != nil {
 		return model.Slot{}, fmt.Errorf("slotRepo.GetByID: %w", err)
 	}
@@ -82,8 +88,9 @@ func (r *slotRepo) GetByID(id int) (model.Slot, error) {
 func (r *slotRepo) Create(tx *sqlx.Tx, s model.Slot) (model.Slot, error) {
 	row := toSlotDB(s)
 	err := tx.QueryRowx(
-		`INSERT INTO slots (employee_id, appeal_id) VALUES ($1, $2) RETURNING id`,
+		`INSERT INTO slots (employee_id, appeal_id, need_to_remove, updated_at) VALUES ($1, $2, $3, $4) RETURNING id`,
 		row.EmployeeID, row.AppealID,
+		row.NeedToRemove, row.UpdatedAt,
 	).Scan(&row.ID)
 	if err != nil {
 		return model.Slot{}, fmt.Errorf("slotRepo.Create: %w", err)
@@ -95,8 +102,9 @@ func (r *slotRepo) Update(tx *sqlx.Tx, id int, s model.Slot) (model.Slot, error)
 	row := toSlotDB(s)
 	row.ID = id
 	res, err := tx.Exec(
-		`UPDATE slots SET employee_id=$1, appeal_id=$2 WHERE id=$3`,
-		row.EmployeeID, row.AppealID, row.ID,
+		`UPDATE slots SET employee_id=$1, appeal_id=$2, need_to_remove=$3, updated_at=$4 WHERE id=$5`,
+		row.EmployeeID, row.AppealID,
+		row.NeedToRemove, row.UpdatedAt, row.ID,
 	)
 	if err != nil {
 		return model.Slot{}, fmt.Errorf("slotRepo.Update: %w", err)
@@ -127,7 +135,7 @@ func (r *slotRepo) GetSlotsCount(employeeID int) (int, error) {
 func (r *slotRepo) GetNeedToRemoveSlots(employeeID int) ([]model.Slot, error) {
 	var slots []slotDB
 
-	err := r.db.Select(&slots, `SELECT id, employee_id, appeal_id FROM slots WHERE employee_id = $1 AND need_to_remove = TRUE`, employeeID)
+	err := r.db.Select(&slots, `SELECT id, employee_id, appeal_id, need_to_remove, updated_at FROM slots WHERE employee_id = $1 AND need_to_remove = TRUE`, employeeID)
 	if err != nil {
 		return nil, fmt.Errorf("slotRepo.GetNeedToRemoveSlots: %w", err)
 	}
@@ -142,7 +150,7 @@ func (r *slotRepo) GetNeedToRemoveSlots(employeeID int) ([]model.Slot, error) {
 func (r *slotRepo) GetRealSlots(employeeID int) ([]model.Slot, error) {
 	var slots []slotDB
 
-	err := r.db.Select(&slots, `SELECT id, employee_id, appeal_id FROM slots WHERE employee_id = $1 AND need_to_remove = FALSE`, employeeID)
+	err := r.db.Select(&slots, `SELECT id, employee_id, appeal_id, need_to_remove, updated_at FROM slots WHERE employee_id = $1 AND need_to_remove = FALSE`, employeeID)
 	if err != nil {
 		return nil, fmt.Errorf("slotRepo.GetRealSlots: %w", err)
 	}
@@ -157,7 +165,7 @@ func (r *slotRepo) GetRealSlots(employeeID int) ([]model.Slot, error) {
 func (r *slotRepo) GetFreeSlots(employeeID int) ([]model.Slot, error) {
 	var slots []slotDB
 
-	err := r.db.Select(&slots, `SELECT id, employee_id, appeal_id FROM slots WHERE employee_id = $1 AND appeal_id IS NULL`, employeeID)
+	err := r.db.Select(&slots, `SELECT id, employee_id, appeal_id, need_to_remove, updated_at FROM slots WHERE employee_id = $1 AND appeal_id IS NULL`, employeeID)
 	if err != nil {
 		return nil, fmt.Errorf("slotRepo.GetRealSlots: %w", err)
 	}
@@ -179,7 +187,7 @@ func (r *slotRepo) SetNeedToRemoveValue(tx *sqlx.Tx, slot model.Slot, value bool
 
 func (r *slotRepo) GetSlotByAppealID(appealID int) (model.Slot, error) {
 	var slot slotDB
-	err := r.db.Get(&slot, `SELECT id, employee_id, appeal_id FROM slots WHERE appeal_id = $1`, appealID)
+	err := r.db.Get(&slot, `SELECT id, employee_id, appeal_id, need_to_remove, updated_at FROM slots WHERE appeal_id = $1`, appealID)
 
 	if err != nil {
 		return model.Slot{}, fmt.Errorf("slotRepo.GetSlotByAppealID: %w", err)
@@ -190,7 +198,7 @@ func (r *slotRepo) GetSlotByAppealID(appealID int) (model.Slot, error) {
 func (r *slotRepo) GetNeedToRemoveSlot(employeeID int) (model.Slot, error) {
 	var slot slotDB
 
-	err := r.db.Get(&slot, `SELECT id, employee_id, appeal_id FROM slots WHERE employee_id = $1 AND need_to_remove = TRUE`, employeeID)
+	err := r.db.Get(&slot, `SELECT id, employee_id, appeal_id, need_to_remove, updated_at FROM slots WHERE employee_id = $1 AND need_to_remove = TRUE`, employeeID)
 	if err != nil {
 		return model.Slot{}, fmt.Errorf("slotRepo.GetNeedToRemoveSlot: %w", err)
 	}

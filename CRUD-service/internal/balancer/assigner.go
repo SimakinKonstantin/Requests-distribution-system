@@ -22,19 +22,16 @@ func (a *Assigner) HandleAssignTask(ctx context.Context, t *asynq.Task) error {
 
 	err := a.db.AssignAppealTx(ctx, p.AppealID, p.ManagerID, p.SlotID)
 	if err == ErrAppealAlreadyAssigned {
-		// idempotent
-		return nil
+		return nil // idempotent
 	}
 	if err == ErrNoFreeSlot {
-		// allow retry: maybe another tick will find different slot
-		log.Printf("assigner: no free slot for manager=%s slot=%s appeal=%d", p.ManagerID, p.SlotID, p.AppealID)
+		log.Printf("assigner: no free slot for manager=%d slot=%d appeal=%d", p.ManagerID, p.SlotID, p.AppealID)
 		return err
 	}
 	if err != nil {
 		return err
 	}
 
-	log.Printf("assigner: assigned appeal=%d manager=%s slot=%s team=%s", p.AppealID, p.ManagerID, p.SlotID, p.TeamID)
+	log.Printf("assigner: assigned appeal=%d manager=%d slot=%d team=%d", p.AppealID, p.ManagerID, p.SlotID, p.TeamID)
 	return nil
 }
-

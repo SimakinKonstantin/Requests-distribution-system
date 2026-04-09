@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strconv"
 	"sync"
 	"time"
 
-	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/hibiken/asynq"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type EventHandlerService struct {
@@ -61,7 +62,7 @@ func (s *EventHandlerService) Run(ctx context.Context) error {
 	msgs, err := ch.Consume(
 		s.cfg.RabbitQueue,
 		"",
-		false, // auto-ack
+		false, // manual ack
 		false,
 		false,
 		false,
@@ -102,11 +103,9 @@ func (s *EventHandlerService) handleDelivery(ctx context.Context, msg amqp.Deliv
 	}
 
 	pe := ProcessedEvent{
-		RabbitEvent:  e,
-		ProcessedAt:  time.Now().UTC(),
+		RabbitEvent: e,
+		ProcessedAt: time.Now().UTC(),
 	}
-
-	// Urgent events are omitted in this simplified demo (only 2 event types).
 	s.addEventToBatch(ctx, pe)
 	return nil
 }
@@ -148,7 +147,6 @@ func (s *EventHandlerService) flush(ctx context.Context) {
 			log.Printf("event-handler: make task failed: %v", err)
 			continue
 		}
-
 		_, err = s.asynq.EnqueueContext(ctx, task,
 			asynq.MaxRetry(3),
 			asynq.Queue(queueForBatchType(batchType)),
@@ -160,8 +158,7 @@ func (s *EventHandlerService) flush(ctx context.Context) {
 }
 
 func (s *EventHandlerService) dedupeKey(e ProcessedEvent) string {
-	// Deduplication key is similar to TS: eventName + appealId (for our two events).
-	return string(e.Name) + "_" + itoa(e.Payload.AppealID)
+	return string(e.Name) + "_" + strconv.Itoa(e.Payload.AppealID)
 }
 
 func groupEventsByType(events []ProcessedEvent) map[JobBatchType][]ProcessedEvent {
@@ -170,7 +167,6 @@ func groupEventsByType(events []ProcessedEvent) map[JobBatchType][]ProcessedEven
 		BatchManagerAvailabilityChange: {},
 		BatchDistributionRequests:      {},
 	}
-
 	for _, e := range events {
 		switch e.Name {
 		case EventAppealNeedsDistribution:
@@ -184,7 +180,6 @@ func groupEventsByType(events []ProcessedEvent) map[JobBatchType][]ProcessedEven
 	return out
 }
 
-// Note: asynq OSS doesn't support per-task priority option; we model priority via separate queues.
 func queueForBatchType(t JobBatchType) string {
 	switch t {
 	case BatchAppealStatusChanges:
@@ -197,4 +192,3 @@ func queueForBatchType(t JobBatchType) string {
 		return "state-low"
 	}
 }
-

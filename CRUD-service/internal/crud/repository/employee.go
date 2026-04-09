@@ -3,6 +3,7 @@ package repository
 import (
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 
@@ -11,36 +12,39 @@ import (
 
 // employeeDB is the database-level representation of Employee.
 type employeeDB struct {
-	ID      int    `db:"id"`
-	Name    string `db:"name"`
-	Surname string `db:"surname"`
-	Limit   int    `db:"limit"`
-	Email   string `db:"email"`
-	Status  string `db:"status"`
-	TeamIDs []int
+	ID           int        `db:"id"`
+	Name         string     `db:"name"`
+	Surname      string     `db:"surname"`
+	Limit        int        `db:"limit"`
+	Email        string     `db:"email"`
+	Status       string     `db:"status"`
+	LastAssignAt *time.Time `db:"last_assign_at"`
+	TeamIDs      []int
 }
 
 func toEmployeeDB(e model.Employee) employeeDB {
 	return employeeDB{
-		ID:      e.ID,
-		Name:    e.Name,
-		Surname: e.Surname,
-		Limit:   e.Limit,
-		Email:   e.Email,
-		TeamIDs: e.TeamIDs,
-		Status:  e.Status,
+		ID:           e.ID,
+		Name:         e.Name,
+		Surname:      e.Surname,
+		Limit:        e.Limit,
+		Email:        e.Email,
+		TeamIDs:      e.TeamIDs,
+		Status:       e.Status,
+		LastAssignAt: e.LastAssignAt,
 	}
 }
 
 func (e employeeDB) toDomain() model.Employee {
 	return model.Employee{
-		ID:      e.ID,
-		Name:    e.Name,
-		Surname: e.Surname,
-		Limit:   e.Limit,
-		Email:   e.Email,
-		TeamIDs: e.TeamIDs,
-		Status:  e.Status,
+		ID:           e.ID,
+		Name:         e.Name,
+		Surname:      e.Surname,
+		Limit:        e.Limit,
+		Email:        e.Email,
+		TeamIDs:      e.TeamIDs,
+		Status:       e.Status,
+		LastAssignAt: e.LastAssignAt,
 	}
 }
 
@@ -64,7 +68,7 @@ func NewEmployeeRepository(db *sqlx.DB) EmployeeRepository {
 
 func (r *employeeRepo) GetAll() ([]model.Employee, error) {
 	var rows []employeeDB
-	if err := r.db.Select(&rows, `SELECT id, name, surname, "limit", email, status FROM employees`); err != nil {
+	if err := r.db.Select(&rows, `SELECT id, name, surname, "limit", email, status, last_assign_at FROM employees`); err != nil {
 		return nil, fmt.Errorf("employeeRepo.GetAll: %w", err)
 	}
 
@@ -81,7 +85,7 @@ func (r *employeeRepo) GetAll() ([]model.Employee, error) {
 
 func (r *employeeRepo) GetByID(id int) (model.Employee, error) {
 	var row employeeDB
-	err := r.db.Get(&row, `SELECT id, name, surname, "limit", email, status FROM employees WHERE id = $1`, id)
+	err := r.db.Get(&row, `SELECT id, name, surname, "limit", email, status, last_assign_at FROM employees WHERE id = $1`, id)
 	if err != nil {
 		return model.Employee{}, fmt.Errorf("employeeRepo.GetByID: %w", err)
 	}
@@ -97,8 +101,8 @@ func (r *employeeRepo) GetByID(id int) (model.Employee, error) {
 func (r *employeeRepo) Create(tx *sqlx.Tx, e model.Employee) (model.Employee, error) {
 	row := toEmployeeDB(e)
 	err := tx.QueryRowx(
-		`INSERT INTO employees (name, surname, "limit", email, status) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-		row.Name, row.Surname, row.Limit, row.Email, row.Status,
+		`INSERT INTO employees (name, surname, "limit", email, status, last_assign_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+		row.Name, row.Surname, row.Limit, row.Email, row.Status, row.LastAssignAt,
 	).Scan(&row.ID)
 	if err != nil {
 		return model.Employee{}, fmt.Errorf("employeeRepo.Create: %w", err)
@@ -123,8 +127,8 @@ func (r *employeeRepo) Update(tx *sqlx.Tx, id int, e model.Employee) (model.Empl
 	row := toEmployeeDB(e)
 	row.ID = id
 	_, err = tx.Exec(
-		`UPDATE employees SET name=$1, surname=$2, "limit"=$3, email=$4, status=$5 WHERE id=$6`,
-		row.Name, row.Surname, row.Limit, row.Email, row.Status, row.ID,
+		`UPDATE employees SET name=$1, surname=$2, "limit"=$3, email=$4, status=$5, last_assign_at=$6 WHERE id=$7`,
+		row.Name, row.Surname, row.Limit, row.Email, row.Status, row.LastAssignAt, row.ID,
 	)
 	if err != nil {
 		rberr := tx.Rollback()

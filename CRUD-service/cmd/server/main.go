@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"crud-service/internal/balancer"
 	"crud-service/internal/config"
@@ -18,19 +20,19 @@ import (
 func main() {
 	cfg := config.Load()
 
-	// Optional: run balancer subsystem inside the same process.
-	// ENABLE_BALANCER=1 starts it in background; balancer is configured via its own env vars
-	// (ROLE, POSTGRES_DSN, REDIS_ADDR, RABBIT_URL, etc).
-	//
-	// NOTE: balancer uses its own Postgres DSN env (POSTGRES_DSN). You can point it to the same DB as CRUD-service.
-	var balancerErrCh <-chan error
-	if os.Getenv("ENABLE_BALANCER") == "1" {
-		ctx := context.Background()
-		balancerErrCh = balancer.StartFromEnvInBackground(ctx)
-		log.Printf("balancer enabled (ENABLE_BALANCER=1)")
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// Database connection
+	// Graceful shutdown on SIGINT / SIGTERM
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sig
+		log.Println("shutdown signal received")
+		cancel()
+	}()
+
+	// Database connection (sqlx, used by CRUD-service)
 	database, err := db.New(cfg.ConnectionString)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -61,17 +63,21 @@ func main() {
 	h := handler.New(employeeSvc, slotSvc, appealSvc, subthemeSvc, clientSvc, themeSvc, teamSvc, workflowSvc)
 	router := h.InitRoutes()
 
-	log.Printf("Starting server on %s", cfg.ServerAddr)
-
-	// If balancer is enabled, we want to crash the process if it fails.
-	if balancerErrCh != nil {
+	// Balancer subsystem — запускается всегда когда задан RABBIT_URL.
+	// Если RABBIT_URL не задан (локальная разработка без RabbitMQ), балансировщик пропускается.
+	if cfg.RabbitURL == "" {
+		log.Println("balancer: RABBIT_URL not set, skipping balancer startup")
+	} else {
+		balancerErrCh := balancer.StartInBackground(ctx, *cfg)
 		go func() {
 			if err := <-balancerErrCh; err != nil && err != context.Canceled {
-				log.Fatalf("balancer stopped: %v", err)
+				log.Fatalf("balancer stopped with error: %v", err)
 			}
 		}()
+		log.Printf("balancer: started (role=%s, queue=%s)", cfg.BalancerRole, cfg.RabbitQueue)
 	}
 
+	log.Printf("Starting server on %s", cfg.ServerAddr)
 	if err = http.ListenAndServe(cfg.ServerAddr, router); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

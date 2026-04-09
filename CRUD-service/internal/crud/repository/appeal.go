@@ -4,6 +4,7 @@ import (
 	"crud-service/internal/crud/model"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -19,6 +20,7 @@ type appealDB struct {
 	Text       string        `db:"text"`
 	Status     string        `db:"status"`
 	TeamID     sql.NullInt64 `db:"team_id"`
+	CreatedAt  time.Time     `db:"created_at"`
 }
 
 // toAppealDB converts a domain Appeal to the DB struct.
@@ -49,6 +51,7 @@ func toAppealDB(a model.Appeal) appealDB {
 		Text:       a.Text,
 		Status:     status,
 		TeamID:     teamID,
+		CreatedAt:  a.CreatedAt,
 	}
 }
 
@@ -77,6 +80,7 @@ func (a appealDB) toDomain() model.Appeal {
 		Text:       a.Text,
 		Status:     a.Status,
 		TeamID:     teamID,
+		CreatedAt:  a.CreatedAt,
 	}
 }
 
@@ -102,7 +106,7 @@ func NewAppealRepository(db *sqlx.DB) AppealRepository {
 func (r *appealRepo) GetAll() ([]model.Appeal, error) {
 	var rows []appealDB
 	if err := r.db.Select(&rows,
-		`SELECT id, client_id, employee_id, theme_id, subtheme_id, text, status, team_id
+		`SELECT id, client_id, employee_id, theme_id, subtheme_id, text, status, team_id, created_at
 		 FROM appeals ORDER BY id`,
 	); err != nil {
 		return nil, fmt.Errorf("appealRepo.GetAll: %w", err)
@@ -118,7 +122,7 @@ func (r *appealRepo) GetAll() ([]model.Appeal, error) {
 func (r *appealRepo) GetByID(id int) (model.Appeal, error) {
 	var row appealDB
 	err := r.db.Get(&row,
-		`SELECT id, client_id, employee_id, theme_id, subtheme_id, text, status, team_id
+		`SELECT id, client_id, employee_id, theme_id, subtheme_id, text, status, team_id, created_at
 		 FROM appeals WHERE id = $1`, id,
 	)
 	if err != nil {
@@ -131,9 +135,9 @@ func (r *appealRepo) Create(tx *sqlx.Tx, a model.Appeal) (model.Appeal, error) {
 	row := toAppealDB(a)
 
 	err := tx.QueryRowx(
-		`INSERT INTO appeals (client_id, employee_id, theme_id, subtheme_id, text, status, team_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-		row.ClientID, row.EmployeeID, row.ThemeID, row.SubthemeID, row.Text, row.Status, row.TeamID,
+		`INSERT INTO appeals (client_id, employee_id, theme_id, subtheme_id, text, status, team_id, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+		row.ClientID, row.EmployeeID, row.ThemeID, row.SubthemeID, row.Text, row.Status, row.TeamID, row.CreatedAt,
 	).Scan(&row.ID)
 	if err != nil {
 		return model.Appeal{}, fmt.Errorf("appealRepo.Create: %w", err)
@@ -146,9 +150,9 @@ func (r *appealRepo) Update(tx *sqlx.Tx, id int, a model.Appeal) (model.Appeal, 
 	row.ID = id
 	res, err := tx.Exec(
 		`UPDATE appeals
-		 SET client_id=$1, employee_id=$2, theme_id=$3, subtheme_id=$4, text=$5, status=$6, team_id=$7
-		 WHERE id=$8`,
-		row.ClientID, row.EmployeeID, row.ThemeID, row.SubthemeID, row.Text, row.Status, row.TeamID, row.ID,
+		 SET client_id=$1, employee_id=$2, theme_id=$3, subtheme_id=$4, text=$5, status=$6, team_id=$7, created_at=$8
+		 WHERE id=$9`,
+		row.ClientID, row.EmployeeID, row.ThemeID, row.SubthemeID, row.Text, row.Status, row.TeamID, row.CreatedAt, row.ID,
 	)
 	if err != nil {
 		return model.Appeal{}, fmt.Errorf("appealRepo.Update: %w", err)
@@ -171,7 +175,7 @@ func (r *appealRepo) Close(tx *sqlx.Tx, id int) (model.Appeal, error) {
 	var row appealDB
 	err := tx.QueryRowx(
 		`UPDATE appeals SET status='closed' WHERE id=$1
-		 RETURNING id, client_id, employee_id, theme_id, subtheme_id, text, status, team_id`,
+		 RETURNING id, client_id, employee_id, theme_id, subtheme_id, text, status, team_id, created_at`,
 		id,
 	).StructScan(&row)
 	if err != nil {

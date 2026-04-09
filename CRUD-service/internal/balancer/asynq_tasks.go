@@ -20,11 +20,11 @@ type BatchUpdatePayload struct {
 type DistributionTickPayload struct{}
 
 type AssignPayload struct {
-	AppealID  int    `json:"appealId"`
-	ManagerID string `json:"managerId"`
-	SlotID    string `json:"slotId"`
-	TeamID    string `json:"teamId"`
-	Priority  int    `json:"priority"`
+	AppealID  int `json:"appealId"`
+	ManagerID int `json:"managerId"`
+	SlotID    int `json:"slotId"`
+	TeamID    int `json:"teamId"`
+	Priority  int `json:"priority"`
 }
 
 func NewBatchUpdateTask(p BatchUpdatePayload) (*asynq.Task, error) {
@@ -46,4 +46,3 @@ func NewAssignTask(p AssignPayload) (*asynq.Task, error) {
 	}
 	return asynq.NewTask(TaskTypeAssign, b), nil
 }
-

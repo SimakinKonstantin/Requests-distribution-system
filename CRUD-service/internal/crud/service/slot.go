@@ -165,3 +165,30 @@ func (s *slotService) Delete(id int) error {
 	}
 	return nil
 }
+
+func (s *slotService) FetchFreeSlotsByManagers(managerIDs []int) (map[int][]model.Slot, error) {
+	if len(managerIDs) == 0 {
+		return map[int][]model.Slot{}, nil
+	}
+	const q = `
+SELECT id, employee_id, appeal_id, updated_at
+FROM slots
+WHERE employee_id = ANY($1) AND appeal_id IS NULL
+ORDER BY employee_id, updated_at ASC
+`
+	rows, err := db.Pool.Query(ctx, q, managerIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[int][]SlotRow, len(managerIDs))
+	for rows.Next() {
+		var s SlotRow
+		if err := rows.Scan(&s.ID, &s.ManagerID, &s.AppealID, &s.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out[s.ManagerID] = append(out[s.ManagerID], s)
+	}
+	return out, rows.Err()
+}

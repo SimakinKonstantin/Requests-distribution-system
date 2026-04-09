@@ -1,9 +1,12 @@
 package model
 
+import "time"
+
 // Slot links an Employee to an Appeal (one active appeal per slot).
 type Slot struct {
-	ID           int  `json:"id"`
-	EmployeeID   int  `json:"employeeId"`
-	AppealID     *int `json:"appealId"`
-	NeedToRemove bool `json:"needToRemove"`
+	ID           int        `json:"id"`
+	EmployeeID   int        `json:"employeeId"`
+	AppealID     *int       `json:"appealId"`
+	NeedToRemove bool       `json:"needToRemove"`
+	UpdatedAt    *time.Time `json:"updatedAt"`
 }

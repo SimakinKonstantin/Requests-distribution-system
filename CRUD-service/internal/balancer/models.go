@@ -15,8 +15,8 @@ type RabbitEvent struct {
 }
 
 type RabbitEventBody struct {
-	AppealID int    `json:"appealId"`
-	TeamID   string `json:"teamId"`
+	AppealID int `json:"appealId"`
+	TeamID   int `json:"teamId"`
 }
 
 type JobBatchType string
@@ -32,29 +32,31 @@ type ProcessedEvent struct {
 	ProcessedAt time.Time `json:"processedAt"`
 }
 
+// AppealRow mirrors the columns read from the appeals table by the balancer.
 type AppealRow struct {
-	ID                         int
-	TeamID                     string
-	IsUrgent                   bool
-	IsImportant                bool
-	CreatedAt                  time.Time
-	PendingClientMessageAt     *time.Time
-	ManagerID                  *string
-	Status                     string
+	ID                     int
+	TeamID                 int
+	IsUrgent               bool
+	IsImportant            bool
+	CreatedAt              time.Time
+	PendingClientMessageAt *time.Time
+	ManagerID              *int // maps to appeals.employee_id
+	Status                 string
 }
 
+// ManagerRow mirrors the columns read from the employees table by the balancer.
 type ManagerRow struct {
-	ID              string
-	IsAvailable     bool
-	TeamIDs         []string
-	ActiveAppeals   int
-	LastAssignAt    *time.Time
+	ID            int
+	IsAvailable   bool
+	TeamIDs       []int
+	ActiveAppeals int
+	LastAssignAt  *time.Time
 }
 
+// SlotRow mirrors the columns read from the slots table by the balancer.
 type SlotRow struct {
-	ID        string
-	ManagerID string
+	ID        int
+	ManagerID int // maps to slots.employee_id
 	AppealID  *int
 	UpdatedAt time.Time
 }
-
