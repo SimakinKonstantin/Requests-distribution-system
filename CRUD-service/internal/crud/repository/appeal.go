@@ -92,6 +92,7 @@ type AppealRepository interface {
 	Update(tx *sqlx.Tx, id int, a model.Appeal) (model.Appeal, error)
 	Delete(tx *sqlx.Tx, id int) error
 	Close(tx *sqlx.Tx, id int) (model.Appeal, error)
+	FetchPendingAppeals(limit int) ([]model.Appeal, error)
 }
 
 type appealRepo struct {
@@ -182,4 +183,36 @@ func (r *appealRepo) Close(tx *sqlx.Tx, id int) (model.Appeal, error) {
 		return model.Appeal{}, fmt.Errorf("appealRepo.Close: %w", err)
 	}
 	return row.toDomain(), nil
+}
+
+func (r *appealRepo) FetchPendingAppeals(limit int) ([]model.Appeal, error) {
+	const q = `
+SELECT a.id, a.team_id, a.created_at, a.employee_id, a.status
+FROM pending_appeals p
+JOIN appeals a ON a.id = p.appeal_id
+WHERE a.employee_id IS NULL AND a.status <> 'closed'
+ORDER BY p.priority DESC, p.updated_at ASC
+LIMIT $1
+`
+	rows, err := r.db.Query(q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []model.Appeal
+	for rows.Next() {
+		var a model.Appeal
+		if err := rows.Scan(
+			&a.ID, &a.TeamID, &a.CreatedAt, &a.EmployeeID, &a.Status,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("appealRepo.FetchPendingAppeals: %w", err)
+	}
+
+	return out, nil
 }

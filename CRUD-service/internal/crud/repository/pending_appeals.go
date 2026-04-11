@@ -71,3 +71,11 @@ func (r *pendingAppealRepo) Delete(tx *sqlx.Tx, appealID int) error {
 	}
 	return nil
 }
+
+func (r *pendingAppealRepo) RemovePendingAppeal(appealID int) error {
+	_, err := r.db.Exec(`DELETE FROM pending_appeals WHERE appeal_id = $1`, appealID)
+	if err != nil {
+		return fmt.Errorf("pendingAppealRepo.RemovePendingAppeal: %w", err)
+	}
+	return nil
+}

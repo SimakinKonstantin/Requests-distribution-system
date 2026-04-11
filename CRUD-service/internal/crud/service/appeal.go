@@ -235,6 +235,25 @@ func (s *appealService) IsImportant(appealID int) bool {
 	return client.IsVIP
 }
 
+type PendingAppeal struct {
+	model.Appeal
+	IsImportant bool `json:"isImportant"`
+}
+
+func (s *appealService) FetchPendingAppeals(limit int) ([]PendingAppeal, error) {
+	appeals, err := s.appealRepo.FetchPendingAppeals(limit)
+	if err != nil {
+		return nil, err
+	}
+
+	pendingAppeals := make([]PendingAppeal, len(appeals))
+	for i, appeal := range appeals {
+		pendingAppeals[i] = PendingAppeal{Appeal: appeal, IsImportant: s.IsImportant(appeal.ID)}
+	}
+
+	return pendingAppeals, nil
+}
+
 var ErrAppealAlreadyAssigned = errors.New("appeal already assigned")
 var ErrAppealClosed = errors.New("appeal closed")
 

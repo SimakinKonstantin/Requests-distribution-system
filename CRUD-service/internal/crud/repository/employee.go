@@ -197,3 +197,49 @@ func (r *employeeRepo) fillTeams(e employeeDB) (employeeDB, error) {
 	e.TeamIDs = teams
 	return e, nil
 }
+
+type EmployeeWithAppealsCount struct {
+	model.Employee
+	ActiveAppealsCount int `db:"active_appeals_count"`
+}
+
+func (r *employeeRepo) FetchAvailableEmployees(limit int) ([]EmployeeWithAppealsCount, error) {
+	// Упорядоченных список менеджеров для назначения обращений.
+	query := `WITH
+    active_appeals_count AS (
+        SELECT employee_id, COUNT(*) AS active_count
+        FROM appeals
+        WHERE status='active' AND employee_id IS NOT NULL
+        GROUP BY employee_id
+    )
+SELECT e.id,
+       e.active_appeals_count,
+       e.last_assign_at,
+       COALESCE(array_agg(te.team_id), '{}') AS team_ids
+FROM employees e
+JOIN active_appeals_count aac ON aac.employee_id = e.id
+LEFT JOIN teams_employees te ON te.employee_id = e.id
+WHERE e.status = 'working'
+GROUP BY e.id
+ORDER BY active_appeals_count ASC, COALESCE(e.last_assign_at, '1970-01-01'::timestamp) ASC
+LIMIT $1
+`
+	rows, err := r.db.Query(query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("employeeRepo.FetchAvailableManagers: %w", err)
+	}
+	defer rows.Close()
+
+	var out []EmployeeWithAppealsCount
+	for rows.Next() {
+		var e EmployeeWithAppealsCount
+		if err := rows.Scan(&e.Employee.ID, &e.ActiveAppealsCount, &e.Employee.LastAssignAt, &e.Employee.TeamIDs); err != nil {
+			return nil, fmt.Errorf("employeeRepo.FetchAvailableManagers: %w", err)
+		}
+		out = append(out, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("employeeRepo.FetchAvailableManagers: %w", err)
+	}
+	return out, nil
+}
