@@ -2,6 +2,7 @@ package balancer
 
 import (
 	"context"
+	"crud-service/internal/crud/service"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,13 +12,12 @@ import (
 )
 
 type BalancerUpdateService struct {
-	db   *DB
-	asynq *asynq.Client
-	cfg  Config
+	appealService service.AppealService
+	asynq         *asynq.Client
 }
 
-func NewBalancerUpdateService(db *DB, asynqClient *asynq.Client, cfg Config) *BalancerUpdateService {
-	return &BalancerUpdateService{db: db, asynq: asynqClient, cfg: cfg}
+func NewBalancerUpdateService(appealService service.AppealService, asynqClient *asynq.Client) *BalancerUpdateService {
+	return &BalancerUpdateService{appealService: appealService, asynq: asynqClient}
 }
 
 func (s *BalancerUpdateService) HandleBatchUpdateTask(ctx context.Context, t *asynq.Task) error {
@@ -53,12 +53,12 @@ func (s *BalancerUpdateService) processBatchAppealUpdates(ctx context.Context, e
 	for appealID, e := range unique {
 		switch e.Name {
 		case EventAppealNeedsDistribution:
-			if err := s.db.UpsertPendingAppealByID(ctx, appealID); err != nil {
+			if err := s.appealService.UpsertPendingAppealByID(appealID); err != nil {
 				log.Printf("balancer-update: upsert pending appeal %d failed: %v", appealID, err)
 				errs = append(errs, fmt.Errorf("appeal %d needs_distribution: %w", appealID, err))
 			}
 		case EventAppealClosed:
-			if err := s.db.CloseAppeal(ctx, appealID); err != nil {
+			if err := s.appealService.Close(appealID); err != nil {
 				log.Printf("balancer-update: close appeal %d failed: %v", appealID, err)
 				errs = append(errs, fmt.Errorf("appeal %d closed: %w", appealID, err))
 			}
@@ -69,4 +69,3 @@ func (s *BalancerUpdateService) processBatchAppealUpdates(ctx context.Context, e
 
 	return errors.Join(errs...)
 }
-

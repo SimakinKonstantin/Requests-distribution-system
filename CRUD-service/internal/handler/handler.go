@@ -53,6 +53,10 @@ func New(
 func (h *Handler) InitRoutes() http.Handler {
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	mux.HandleFunc("/employees", h.employeesCollection)
 	mux.HandleFunc("/employees/", h.employeesResource)
 

@@ -13,6 +13,11 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// BalancerEventPublisher sends events consumed by the balancer (RabbitMQ → asynq).
+type BalancerEventPublisher interface {
+	PublishAppealNeedsDistribution(appealID, teamID int) error
+}
+
 // AppealService defines business-logic operations for Appeal.
 type AppealService interface {
 	GetAll() ([]model.Appeal, error)
@@ -21,28 +26,36 @@ type AppealService interface {
 	Update(id int, a model.Appeal) (model.Appeal, error)
 	Delete(id int) error
 	Close(id int) error
+	Assign(appealID int, employeeID int, slotID int) error
+	UpsertPendingAppealByID(appealID int) error
+	FetchPendingAppeals(limit int) ([]PendingAppeal, error)
+	IsImportant(appealID int) bool
 }
 
 type appealService struct {
-	db              *sqlx.DB
-	appealRepo      repository.AppealRepository
-	teamRepo        repository.TeamRepository
-	clientRepo      repository.ClientRepository
-	slotRepo        repository.SlotRepository
-	workflowService workflow.WorkflowService
-	teamService     TeamService
+	db                *sqlx.DB
+	appealRepo        repository.AppealRepository
+	teamRepo          repository.TeamRepository
+	clientRepo        repository.ClientRepository
+	slotRepo          repository.SlotRepository
+	pendingAppealRepo repository.PendingAppealRepository
+	workflowService   *workflow.WorkflowService
+	teamService       TeamService
+	eventPublisher    BalancerEventPublisher
 }
 
 // NewAppealService returns a new AppealService.
-func NewAppealService(db *sqlx.DB, appealRepo repository.AppealRepository, teamRepo repository.TeamRepository, clientRepo repository.ClientRepository, slotRepo repository.SlotRepository, workflowService workflow.WorkflowService, teamService TeamService) AppealService {
+func NewAppealService(db *sqlx.DB, appealRepo repository.AppealRepository, teamRepo repository.TeamRepository, clientRepo repository.ClientRepository, slotRepo repository.SlotRepository, pendingAppealRepo repository.PendingAppealRepository, workflowService *workflow.WorkflowService, teamService TeamService, eventPublisher BalancerEventPublisher) AppealService {
 	return &appealService{
-		db:              db,
-		appealRepo:      appealRepo,
-		teamRepo:        teamRepo,
-		clientRepo:      clientRepo,
-		slotRepo:        slotRepo,
-		workflowService: workflowService,
-		teamService:     teamService,
+		db:                db,
+		appealRepo:        appealRepo,
+		teamRepo:          teamRepo,
+		clientRepo:        clientRepo,
+		slotRepo:          slotRepo,
+		pendingAppealRepo: pendingAppealRepo,
+		workflowService:   workflowService,
+		teamService:       teamService,
+		eventPublisher:    eventPublisher,
 	}
 }
 
@@ -64,8 +77,6 @@ func (s *appealService) Create(a model.Appeal) (model.Appeal, error) {
 			_ = tx.Rollback()
 		}
 	}()
-
-	slog.Info("}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
 
 	createdAppeal, err := s.appealRepo.Create(tx, a)
 	if err != nil {
@@ -93,15 +104,23 @@ func (s *appealService) Create(a model.Appeal) (model.Appeal, error) {
 		return model.Appeal{}, fmt.Errorf("appealService.Create commit transaction: %w", err)
 	}
 
-	s.workflowService.Run(map[string]interface{}{
-		"appealId":                        createdAppeal.ID,
-		string(workflow.ThemeId):          createdAppeal.ThemeID,
-		string(workflow.Text):             createdAppeal.Text,
-		string(workflow.MessageCreatedAt): time.Now().Format(time.RFC3339),
-		string(workflow.ClientEmail):      client.Email,
-	})
+	if s.workflowService != nil {
+		s.workflowService.Run(map[string]interface{}{
+			"appealId":                        createdAppeal.ID,
+			string(workflow.ThemeId):          createdAppeal.ThemeID,
+			string(workflow.Text):             createdAppeal.Text,
+			string(workflow.MessageCreatedAt): time.Now().Format(time.RFC3339),
+			string(workflow.ClientEmail):      client.Email,
+		})
+	}
 
 	slog.Warn("WORKFLOWS FINISHED")
+
+	if s.eventPublisher != nil {
+		if pubErr := s.eventPublisher.PublishAppealNeedsDistribution(createdAppeal.ID, newTeam.ID); pubErr != nil {
+			slog.Warn("appealService.Create: publish APPEAL_NEEDS_DISTRIBUTION failed", "appealId", createdAppeal.ID, "err", pubErr)
+		}
+	}
 
 	return createdAppeal, nil
 }
@@ -316,4 +335,43 @@ func (s *appealService) Assign(appealID int, employeeID int, slotID int) error {
 	}
 
 	return nil
+}
+
+func (s *appealService) UpsertPendingAppealByID(appealID int) error {
+	appealInfo, err := s.appealRepo.GetByID(appealID)
+	if err != nil {
+		return fmt.Errorf("appealService.UpsertPendingAppealByID get appeal: %w", err)
+	}
+
+	if appealInfo.Status == "closed" {
+		return s.pendingAppealRepo.RemovePendingAppeal(appealID)
+	}
+	if appealInfo.EmployeeID != nil {
+		return s.pendingAppealRepo.RemovePendingAppeal(appealID)
+	}
+	priority := calculateAppealPriority(s.IsImportant(appealID), appealInfo.CreatedAt, time.Now())
+
+	err = s.pendingAppealRepo.UpsertPendingAppealByID(appealID, appealInfo.TeamID, priority)
+	if err != nil {
+		return fmt.Errorf("appealService.UpsertPendingAppealByID upsert pending appeal: %w", err)
+	}
+
+	return err
+}
+
+func calculateAppealPriority(isImportant bool, createdAt time.Time, now time.Time) int64 {
+	group := 2
+	if isImportant {
+		group = 0
+	}
+	if !isImportant {
+		group = 1
+	}
+
+	priority := int64((2 - group) * 1_000_000)
+
+	ageMinutes := (int64)(now.Sub(createdAt).Minutes())
+	priority += ageMinutes * 10
+
+	return priority
 }

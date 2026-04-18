@@ -7,7 +7,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - crud
+      crud:
+        condition: service_healthy
     networks:
       - app-network
 
@@ -16,14 +17,28 @@ services:
       context: CRUD-service
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     depends_on:
       postgres-crud:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - app-network
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres-crud:5432/crud?sslmode=disable
       - SERVER_ADDR=:8080
+      - ROLE=all
+      - REDIS_ADDR=redis:6379
+      - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBIT_QUEUE=balancer.events
 
   postgres-crud:
     image: postgres:17
@@ -39,15 +54,52 @@ services:
       - app-network
     attach: false
     volumes:
-      - postgres_crud_:/var/lib/postgresql/data
+      - postgres_crud_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=crud
+
+  redis:
+    image: redis:7.4.8-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - app-network
+    attach: false
+    volumes:
+      - redis_data:/data
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5674:5672"
+      - "15674:15672"
+    healthcheck:
+      test: rabbitmq-diagnostics check_port_connectivity
+      interval: 30s
+      timeout: 30s
+      retries: 10
+    networks:
+      - app-network
+    attach: false
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
 
 networks:
   app-network:
     driver: bridge
 
 volumes:
-  postgres_crud_:
+  postgres_crud_data:
+  redis_data:
+  rabbitmq_data:

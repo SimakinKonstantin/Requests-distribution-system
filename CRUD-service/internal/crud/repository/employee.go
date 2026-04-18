@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"crud-service/internal/crud/model"
 )
@@ -55,6 +56,8 @@ type EmployeeRepository interface {
 	Create(tx *sqlx.Tx, e model.Employee) (model.Employee, error)
 	Update(tx *sqlx.Tx, id int, e model.Employee) (model.Employee, error)
 	Delete(tx *sqlx.Tx, id int) error
+	FetchAvailableEmployees(limit int) ([]EmployeeWithAppealsCount, error)
+	GetEmployeeActiveAppeals(employeeID int) (int, error)
 }
 
 type employeeRepo struct {
@@ -212,16 +215,17 @@ func (r *employeeRepo) FetchAvailableEmployees(limit int) ([]EmployeeWithAppeals
         WHERE status='active' AND employee_id IS NOT NULL
         GROUP BY employee_id
     )
-SELECT e.id,
-       e.active_appeals_count,
-       e.last_assign_at,
+
+SELECT e.id AS id,
+       COALESCE(aac.active_count, 0) AS active_appeals_count,
+       e.last_assign_at AS last_assign_at,
        COALESCE(array_agg(te.team_id), '{}') AS team_ids
 FROM employees e
-JOIN active_appeals_count aac ON aac.employee_id = e.id
+LEFT JOIN active_appeals_count aac ON aac.employee_id = e.id
 LEFT JOIN teams_employees te ON te.employee_id = e.id
 WHERE e.status = 'working'
-GROUP BY e.id
-ORDER BY active_appeals_count ASC, COALESCE(e.last_assign_at, '1970-01-01'::timestamp) ASC
+GROUP BY e.id, e.id, aac.active_count, e.last_assign_at
+ORDER BY COALESCE(aac.active_count, 0) ASC, COALESCE(e.last_assign_at, '1970-01-01'::timestamp) ASC NULLS FIRST
 LIMIT $1
 `
 	rows, err := r.db.Query(query, limit)
@@ -233,8 +237,16 @@ LIMIT $1
 	var out []EmployeeWithAppealsCount
 	for rows.Next() {
 		var e EmployeeWithAppealsCount
-		if err := rows.Scan(&e.Employee.ID, &e.ActiveAppealsCount, &e.Employee.LastAssignAt, &e.Employee.TeamIDs); err != nil {
+
+		teamIDs := pq.Int64Array{}
+
+		if err := rows.Scan(&e.Employee.ID, &e.ActiveAppealsCount, &e.Employee.LastAssignAt, &teamIDs); err != nil {
 			return nil, fmt.Errorf("employeeRepo.FetchAvailableManagers: %w", err)
+		}
+
+		e.Employee.TeamIDs = make([]int, len(teamIDs))
+		for i, id := range teamIDs {
+			e.Employee.TeamIDs[i] = int(id)
 		}
 		out = append(out, e)
 	}
@@ -242,4 +254,13 @@ LIMIT $1
 		return nil, fmt.Errorf("employeeRepo.FetchAvailableManagers: %w", err)
 	}
 	return out, nil
+}
+
+func (r *employeeRepo) GetEmployeeActiveAppeals(employeeID int) (int, error) {
+	var count int
+	err := r.db.Get(&count, `SELECT COUNT(*) FROM appeals WHERE employee_id = $1 AND status = 'active'`, employeeID)
+	if err != nil {
+		return 0, fmt.Errorf("employeeRepo.GetEmployeeActiveAppeals: %w", err)
+	}
+	return count, nil
 }

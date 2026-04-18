@@ -20,6 +20,8 @@ type PendingAppealRepository interface {
 	Create(tx *sqlx.Tx, pendingAppeal PendingAppealDB) error
 	Update(tx *sqlx.Tx, pendingAppeal PendingAppealDB) error
 	Delete(tx *sqlx.Tx, appealID int) error
+	RemovePendingAppeal(appealID int) error
+	UpsertPendingAppealByID(appealID int, teamID *int, priority int64) error
 }
 
 type pendingAppealRepo struct {
@@ -76,6 +78,22 @@ func (r *pendingAppealRepo) RemovePendingAppeal(appealID int) error {
 	_, err := r.db.Exec(`DELETE FROM pending_appeals WHERE appeal_id = $1`, appealID)
 	if err != nil {
 		return fmt.Errorf("pendingAppealRepo.RemovePendingAppeal: %w", err)
+	}
+	return nil
+}
+
+func (r *pendingAppealRepo) UpsertPendingAppealByID(appealID int, teamID *int, priority int64) error {
+	query := `
+INSERT INTO pending_appeals (appeal_id, team_id, priority)
+VALUES ($1, $2, $3)
+ON CONFLICT (appeal_id) DO UPDATE SET
+  team_id=excluded.team_id,
+  priority=excluded.priority,
+  updated_at=now()`
+
+	_, err := r.db.Exec(query, appealID, teamID, priority)
+	if err != nil {
+		return fmt.Errorf("pendingAppealRepo.UpsertPendingAppealByID: %w", err)
 	}
 	return nil
 }

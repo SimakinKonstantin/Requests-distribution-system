@@ -5,31 +5,32 @@ import (
 	"log"
 	"time"
 
+	"crud-service/internal/crud/repository"
+	"crud-service/internal/crud/service"
+
 	"github.com/hibiken/asynq"
 )
 
-// Run starts the balancer services according to cfg.BalancerRole ("all" | "event-handler" | "worker").
-// It blocks until ctx is canceled or a component returns an error.
-func Run(ctx context.Context, cfg Config) error {
-	db, err := NewDB(ctx, cfg.BalancerPostgresDSN)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
+type Services struct {
+	AppealService  service.AppealService
+	SlotService    service.SlotService
+	EmployeeRepo   repository.EmployeeRepository
+}
 
+func Run(ctx context.Context, cfg Config, svc Services) error {
 	asynqClient := NewAsynqClient(cfg.RedisAddr)
 	defer asynqClient.Close()
 
-	updateSvc := NewBalancerUpdateService(db, asynqClient, cfg)
-	matcher := NewMatcher(db, asynqClient, cfg)
-	assigner := NewAssigner(db)
+	updateSvc := NewBalancerUpdateService(svc.AppealService, asynqClient)
+	matcher := NewMatcher(asynqClient, cfg, svc.AppealService, svc.EmployeeRepo, svc.SlotService)
+	assigner := NewAssigner(svc.AppealService)
 	workers := NewWorkers(cfg.RedisAddr, updateSvc, matcher, assigner)
 
 	switch cfg.BalancerRole {
 	case "event-handler":
 		log.Printf("balancer: starting role=event-handler")
-		svc := NewEventHandlerService(cfg, asynqClient)
-		if err := svc.Run(ctx); err != nil && err != context.Canceled {
+		eventSvc := NewEventHandlerService(cfg, asynqClient)
+		if err := eventSvc.Run(ctx); err != nil && err != context.Canceled {
 			return err
 		}
 		return nil
@@ -45,7 +46,7 @@ func Run(ctx context.Context, cfg Config) error {
 		log.Printf("balancer: starting role=all")
 		EnqueueDistributionTickOnce(ctx, asynqClient)
 
-		svc := NewEventHandlerService(cfg, asynqClient)
+		eventSvc := NewEventHandlerService(cfg, asynqClient)
 
 		errCh := make(chan error, 2)
 		go func() {
@@ -53,7 +54,7 @@ func Run(ctx context.Context, cfg Config) error {
 			errCh <- workers.Run(ctx)
 		}()
 		go func() {
-			errCh <- svc.Run(ctx)
+			errCh <- eventSvc.Run(ctx)
 		}()
 
 		select {
@@ -71,12 +72,11 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 }
 
-// StartInBackground starts the balancer in a goroutine and returns a channel
-// with the terminal error (if any). Caller provides the already-loaded config.
-func StartInBackground(parent context.Context, cfg Config) <-chan error {
+// StartInBackground запускает балансировщик в горутине и возвращает канал с ошибкой завершения.
+func StartInBackground(parent context.Context, cfg Config, svc Services) <-chan error {
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(parent, cfg)
+		errCh <- Run(parent, cfg, svc)
 	}()
 	return errCh
 }

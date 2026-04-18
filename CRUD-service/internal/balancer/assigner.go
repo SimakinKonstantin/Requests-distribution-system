@@ -2,17 +2,22 @@ package balancer
 
 import (
 	"context"
+	"crud-service/internal/crud/service"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"log"
 
 	"github.com/hibiken/asynq"
 )
 
 type Assigner struct {
-	db *DB
+	appealService service.AppealService
 }
 
-func NewAssigner(db *DB) *Assigner { return &Assigner{db: db} }
+func NewAssigner(appealService service.AppealService) *Assigner {
+	return &Assigner{appealService: appealService}
+}
 
 func (a *Assigner) HandleAssignTask(ctx context.Context, t *asynq.Task) error {
 	var p AssignPayload
@@ -20,13 +25,14 @@ func (a *Assigner) HandleAssignTask(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
-	err := a.db.AssignAppealTx(ctx, p.AppealID, p.ManagerID, p.SlotID)
-	if err == ErrAppealAlreadyAssigned {
-		return nil // idempotent
+	err := a.appealService.Assign(p.AppealID, p.ManagerID, p.SlotID)
+	if errors.Is(err, service.ErrAppealAlreadyAssigned) {
+		return nil
 	}
-	if err == ErrNoFreeSlot {
-		log.Printf("assigner: no free slot for manager=%d slot=%d appeal=%d", p.ManagerID, p.SlotID, p.AppealID)
-		return err
+	if errors.Is(err, sql.ErrNoRows) {
+		// Slot уже занят или недоступен — повтор задачи не поможет, иначе asynq делает MaxRetry попыток и спамит WARN.
+		log.Printf("assigner: no free slot for manager=%d slot=%d appeal=%d (dropping task)", p.ManagerID, p.SlotID, p.AppealID)
+		return nil
 	}
 	if err != nil {
 		return err

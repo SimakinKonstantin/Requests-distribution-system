@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 // SlotService defines business-logic operations for Slot.
@@ -15,6 +16,7 @@ type SlotService interface {
 	Create(s model.Slot) (model.Slot, error)
 	UpdateCount(id int, count int) error
 	Delete(id int) error
+	FetchFreeSlotsByEmployees(employeeIDs []int) (map[int][]model.Slot, error)
 }
 
 type slotService struct {
@@ -166,8 +168,8 @@ func (s *slotService) Delete(id int) error {
 	return nil
 }
 
-func (s *slotService) FetchFreeSlotsByManagers(managerIDs []int) (map[int][]model.Slot, error) {
-	if len(managerIDs) == 0 {
+func (s *slotService) FetchFreeSlotsByEmployees(employeeIDs []int) (map[int][]model.Slot, error) {
+	if len(employeeIDs) == 0 {
 		return map[int][]model.Slot{}, nil
 	}
 	const q = `
@@ -176,19 +178,23 @@ FROM slots
 WHERE employee_id = ANY($1) AND appeal_id IS NULL
 ORDER BY employee_id, updated_at ASC
 `
-	rows, err := db.Pool.Query(ctx, q, managerIDs)
+	ids := make([]int64, len(employeeIDs))
+	for i, id := range employeeIDs {
+		ids[i] = int64(id)
+	}
+	rows, err := s.db.Query(q, pq.Array(ids))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	out := make(map[int][]SlotRow, len(managerIDs))
+	out := make(map[int][]model.Slot, len(employeeIDs))
 	for rows.Next() {
-		var s SlotRow
-		if err := rows.Scan(&s.ID, &s.ManagerID, &s.AppealID, &s.UpdatedAt); err != nil {
+		var s model.Slot
+		if err := rows.Scan(&s.ID, &s.EmployeeID, &s.AppealID, &s.UpdatedAt); err != nil {
 			return nil, err
 		}
-		out[s.ManagerID] = append(out[s.ManagerID], s)
+		out[s.EmployeeID] = append(out[s.EmployeeID], s)
 	}
 	return out, rows.Err()
 }

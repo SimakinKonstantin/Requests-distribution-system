@@ -2,28 +2,35 @@ package balancer
 
 import (
 	"context"
+	"crud-service/internal/crud/model"
+	"crud-service/internal/crud/repository"
+	"crud-service/internal/crud/service"
+	"fmt"
 	"log"
+	"log/slog"
 	"sort"
 	"time"
 
 	"github.com/hibiken/asynq"
 )
 
-type managerState struct {
-	m          ManagerRow
-	active     int
-	lastAssign *time.Time
-	usedSlots  map[int]struct{}
+type employeeState struct {
+	emploee            model.Employee
+	activeAppealsCount int
+	lastAssign         *time.Time
+	usedSlots          map[int]struct{}
 }
 
 type Matcher struct {
-	db    *DB
-	asynq *asynq.Client
-	cfg   Config
+	appealService service.AppealService
+	slotService   service.SlotService
+	employeeRepo  repository.EmployeeRepository
+	asynq         *asynq.Client
+	cfg           Config
 }
 
-func NewMatcher(db *DB, asynqClient *asynq.Client, cfg Config) *Matcher {
-	return &Matcher{db: db, asynq: asynqClient, cfg: cfg}
+func NewMatcher(asynqClient *asynq.Client, cfg Config, appealService service.AppealService, employeeRepo repository.EmployeeRepository, slotService service.SlotService) *Matcher {
+	return &Matcher{appealService: appealService, employeeRepo: employeeRepo, slotService: slotService, asynq: asynqClient, cfg: cfg}
 }
 
 func (m *Matcher) RunTicker(ctx context.Context) {
@@ -46,29 +53,52 @@ func (m *Matcher) RunTicker(ctx context.Context) {
 }
 
 func (m *Matcher) HandleDistributionTick(ctx context.Context, _ *asynq.Task) error {
-	appeals, err := m.db.FetchPendingAppeals(ctx, m.cfg.FetchAppealsLimit)
+	log.Printf("Entered distribution tick")
+
+	appeals, err := m.appealService.FetchPendingAppeals(m.cfg.FetchAppealsLimit)
+
+	log.Printf("FetchPendingAppeals: %v", appeals)
+
 	if err != nil {
-		return err
-	}
-	managers, err := m.db.FetchAvailableManagers(ctx, m.cfg.FetchManagersLimit)
-	if err != nil {
+		log.Printf("matcher: distribution tick: FetchPendingAppeals: %v", err)
 		return err
 	}
 
-	if len(appeals) == 0 || len(managers) == 0 {
+	employees, err := m.employeeRepo.FetchAvailableEmployees(m.cfg.FetchManagersLimit)
+	if err != nil {
+		log.Printf("matcher: distribution tick: FetchAvailableEmployees: %v", err)
+		return err
+	}
+
+	log.Printf("Fetched available employees: %v", employees)
+
+	if len(appeals) == 0 || len(employees) == 0 {
 		return nil
 	}
 
-	managerIDs := make([]int, 0, len(managers))
-	for _, mg := range managers {
-		managerIDs = append(managerIDs, mg.ID)
+	employeeIDs := make([]int, 0, len(employees))
+	for _, employee := range employees {
+		employeeIDs = append(employeeIDs, employee.ID)
 	}
-	freeSlots, err := m.db.FetchFreeSlotsByManagers(ctx, managerIDs)
+
+	log.Printf("Employee IDs: %v", employeeIDs)
+
+	freeSlots, err := m.slotService.FetchFreeSlotsByEmployees(employeeIDs)
 	if err != nil {
+		log.Printf("matcher: distribution tick: FetchFreeSlotsByEmployees: %v", err)
 		return err
 	}
 
-	assignments := FindOptimalAssignments(appeals, managers, freeSlots)
+	appealsInfo := make([]model.Appeal, 0, len(appeals))
+	for _, appeal := range appeals {
+		appealsInfo = append(appealsInfo, appeal.Appeal)
+	}
+	employeesInfo := make([]model.Employee, 0, len(employees))
+	for _, employee := range employees {
+		employeesInfo = append(employeesInfo, employee.Employee)
+	}
+
+	assignments := m.FindOptimalAssignments(appealsInfo, employeesInfo, freeSlots)
 	for _, a := range assignments {
 		task, err := NewAssignTask(a)
 		if err != nil {
@@ -87,18 +117,25 @@ func (m *Matcher) HandleDistributionTick(ctx context.Context, _ *asynq.Task) err
 }
 
 // FindOptimalAssignments distributes pending appeals to available managers.
-func FindOptimalAssignments(appeals []AppealRow, managers []ManagerRow, freeSlots map[int][]SlotRow) []AssignPayload {
-	byTeam := make(map[int][]*managerState)
-	states := make(map[int]*managerState, len(managers))
-	for _, mg := range managers {
-		st := &managerState{
-			m:          mg,
-			active:     mg.ActiveAppeals,
-			lastAssign: mg.LastAssignAt,
-			usedSlots:  map[int]struct{}{},
+func (m *Matcher) FindOptimalAssignments(appeals []model.Appeal, employees []model.Employee, freeSlots map[int][]model.Slot) []AssignPayload {
+	byTeam := make(map[int][]*employeeState)
+	states := make(map[int]*employeeState, len(employees))
+	for _, employee := range employees {
+
+		activeAppealsCount, err := m.employeeRepo.GetEmployeeActiveAppeals(employee.ID)
+		if err != nil {
+			log.Printf("matcher: get employee active appeals failed: %v", err)
+			continue
 		}
-		states[mg.ID] = st
-		for _, team := range mg.TeamIDs {
+
+		st := &employeeState{
+			emploee:            employee,
+			activeAppealsCount: activeAppealsCount,
+			lastAssign:         employee.LastAssignAt,
+			usedSlots:          map[int]struct{}{},
+		}
+		states[employee.ID] = st
+		for _, team := range employee.TeamIDs {
 			byTeam[team] = append(byTeam[team], st)
 		}
 	}
@@ -106,8 +143,8 @@ func FindOptimalAssignments(appeals []AppealRow, managers []ManagerRow, freeSlot
 	for team, arr := range byTeam {
 		sort.SliceStable(arr, func(i, j int) bool {
 			a, b := arr[i], arr[j]
-			if a.active != b.active {
-				return a.active < b.active
+			if a.activeAppealsCount != b.activeAppealsCount {
+				return a.activeAppealsCount < b.activeAppealsCount
 			}
 			ai, bi := time.Time{}, time.Time{}
 			if a.lastAssign != nil {
@@ -119,7 +156,7 @@ func FindOptimalAssignments(appeals []AppealRow, managers []ManagerRow, freeSlot
 			if !ai.Equal(bi) {
 				return ai.Before(bi)
 			}
-			return len(freeSlots[a.m.ID]) > len(freeSlots[b.m.ID])
+			return len(freeSlots[a.emploee.ID]) > len(freeSlots[b.emploee.ID])
 		})
 		byTeam[team] = arr
 	}
@@ -127,8 +164,13 @@ func FindOptimalAssignments(appeals []AppealRow, managers []ManagerRow, freeSlot
 	now := time.Now().UTC()
 	out := make([]AssignPayload, 0)
 
-	for _, ap := range appeals {
-		candidates := byTeam[ap.TeamID]
+	for _, appeal := range appeals {
+		if appeal.TeamID == nil {
+			slog.Warn(fmt.Sprintf("matcher: appeal has no team id: %d", appeal.ID))
+			continue
+		}
+
+		candidates := byTeam[*appeal.TeamID]
 		if len(candidates) == 0 {
 			continue
 		}
@@ -143,25 +185,25 @@ func FindOptimalAssignments(appeals []AppealRow, managers []ManagerRow, freeSlot
 			continue
 		}
 
-		best.active++
+		best.activeAppealsCount++
 		t := now
 		best.lastAssign = &t
 		best.usedSlots[slotID] = struct{}{}
 
 		out = append(out, AssignPayload{
-			AppealID:  ap.ID,
-			ManagerID: best.m.ID,
+			AppealID:  appeal.ID,
+			ManagerID: best.emploee.ID,
 			SlotID:    slotID,
-			TeamID:    ap.TeamID,
-			Priority:  classifyAppealPriority(ap),
+			TeamID:    *appeal.TeamID,
+			Priority:  m.classifyAppealPriority(appeal),
 		})
 	}
 
 	return out
 }
 
-func pickBestManager(candidates []*managerState, freeSlots map[int][]SlotRow) *managerState {
-	var best *managerState
+func pickBestManager(candidates []*employeeState, freeSlots map[int][]model.Slot) *employeeState {
+	var best *employeeState
 	for _, cur := range candidates {
 		if best == nil {
 			if hasFreeSlot(cur, freeSlots) {
@@ -172,8 +214,8 @@ func pickBestManager(candidates []*managerState, freeSlots map[int][]SlotRow) *m
 		if !hasFreeSlot(cur, freeSlots) {
 			continue
 		}
-		if cur.active != best.active {
-			if cur.active < best.active {
+		if cur.activeAppealsCount != best.activeAppealsCount {
+			if cur.activeAppealsCount < best.activeAppealsCount {
 				best = cur
 			}
 			continue
@@ -202,8 +244,8 @@ func pickBestManager(candidates []*managerState, freeSlots map[int][]SlotRow) *m
 	return best
 }
 
-func hasFreeSlot(m *managerState, freeSlots map[int][]SlotRow) bool {
-	for _, s := range freeSlots[m.m.ID] {
+func hasFreeSlot(m *employeeState, freeSlots map[int][]model.Slot) bool {
+	for _, s := range freeSlots[m.emploee.ID] {
 		if _, used := m.usedSlots[s.ID]; !used {
 			return true
 		}
@@ -211,8 +253,8 @@ func hasFreeSlot(m *managerState, freeSlots map[int][]SlotRow) bool {
 	return false
 }
 
-func pickOldestFreeSlot(m *managerState, freeSlots map[int][]SlotRow) int {
-	for _, s := range freeSlots[m.m.ID] {
+func pickOldestFreeSlot(m *employeeState, freeSlots map[int][]model.Slot) int {
+	for _, s := range freeSlots[m.emploee.ID] {
 		if _, used := m.usedSlots[s.ID]; used {
 			continue
 		}
@@ -221,19 +263,22 @@ func pickOldestFreeSlot(m *managerState, freeSlots map[int][]SlotRow) int {
 	return 0
 }
 
-func oldestFreeSlotTime(m *managerState, freeSlots map[int][]SlotRow) time.Time {
-	for _, s := range freeSlots[m.m.ID] {
+func oldestFreeSlotTime(m *employeeState, freeSlots map[int][]model.Slot) time.Time {
+	for _, s := range freeSlots[m.emploee.ID] {
 		if _, used := m.usedSlots[s.ID]; used {
 			continue
 		}
-		return s.UpdatedAt
+		if s.UpdatedAt != nil {
+			return *s.UpdatedAt
+		}
+		return time.Time{}
 	}
 	return time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC)
 }
 
-func countFreeSlots(m *managerState, freeSlots map[int][]SlotRow) int {
+func countFreeSlots(m *employeeState, freeSlots map[int][]model.Slot) int {
 	n := 0
-	for _, s := range freeSlots[m.m.ID] {
+	for _, s := range freeSlots[m.emploee.ID] {
 		if _, used := m.usedSlots[s.ID]; !used {
 			n++
 		}
@@ -241,15 +286,10 @@ func countFreeSlots(m *managerState, freeSlots map[int][]SlotRow) int {
 	return n
 }
 
-func classifyAppealPriority(a AppealRow) int {
-	if a.IsImportant && a.IsUrgent {
-		return 10
+func (m *Matcher) classifyAppealPriority(a model.Appeal) int {
+	importance := m.appealService.IsImportant(a.ID)
+	if importance {
+		return 0
 	}
-	if a.IsImportant {
-		return 8
-	}
-	if a.IsUrgent {
-		return 6
-	}
-	return 5
+	return 1
 }

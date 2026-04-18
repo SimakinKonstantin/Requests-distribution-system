@@ -47,6 +47,7 @@ func main() {
 	clientRepo := repository.NewClientRepository(database)
 	themeRepo := repository.NewThemeRepository(database)
 	teamRepo := repository.NewTeamRepository(database)
+	pendingAppealRepo := repository.NewPendingAppealRepository(database)
 	workflowRepo := workflow.NewWorkflowRepository(database)
 
 	// Services
@@ -57,7 +58,11 @@ func main() {
 	themeSvc := service.NewThemeService(database, themeRepo)
 	teamSvc := service.NewTeamService(database, teamRepo)
 	workflowSvc := workflow.NewWorkflowService(workflowRepo, teamSvc)
-	appealSvc := service.NewAppealService(database, appealRepo, teamRepo, clientRepo, slotRepo, workflowSvc, teamSvc)
+	var appealEventPub service.BalancerEventPublisher
+	if cfg.RabbitURL != "" {
+		appealEventPub = balancer.NewRabbitPublisher(cfg.RabbitURL, cfg.RabbitQueue)
+	}
+	appealSvc := service.NewAppealService(database, appealRepo, teamRepo, clientRepo, slotRepo, pendingAppealRepo, &workflowSvc, teamSvc, appealEventPub)
 
 	// Handler & routes
 	h := handler.New(employeeSvc, slotSvc, appealSvc, subthemeSvc, clientSvc, themeSvc, teamSvc, workflowSvc)
@@ -68,7 +73,12 @@ func main() {
 	if cfg.RabbitURL == "" {
 		log.Println("balancer: RABBIT_URL not set, skipping balancer startup")
 	} else {
-		balancerErrCh := balancer.StartInBackground(ctx, *cfg)
+		balancerSvc := balancer.Services{
+			AppealService: appealSvc,
+			SlotService:   slotSvc,
+			EmployeeRepo:  employeeRepo,
+		}
+		balancerErrCh := balancer.StartInBackground(ctx, *cfg, balancerSvc)
 		go func() {
 			if err := <-balancerErrCh; err != nil && err != context.Canceled {
 				log.Fatalf("balancer stopped with error: %v", err)
