@@ -30,7 +30,7 @@ func (a *Assigner) HandleAssignTask(ctx context.Context, t *asynq.Task) error {
 		return nil
 	}
 	if errors.Is(err, sql.ErrNoRows) {
-		// Slot уже занят или недоступен — повтор задачи не поможет, иначе asynq делает MaxRetry попыток и спамит WARN.
+		// Slot уже занят или недоступен - повтор задачи не поможет, иначе asynq делает MaxRetry попыток и спамит WARN.
 		log.Printf("assigner: no free slot for manager=%d slot=%d appeal=%d (dropping task)", p.ManagerID, p.SlotID, p.AppealID)
 		return nil
 	}

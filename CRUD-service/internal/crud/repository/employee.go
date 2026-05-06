@@ -224,7 +224,7 @@ FROM employees e
 LEFT JOIN active_appeals_count aac ON aac.employee_id = e.id
 LEFT JOIN teams_employees te ON te.employee_id = e.id
 WHERE e.status = 'working'
-GROUP BY e.id, e.id, aac.active_count, e.last_assign_at
+GROUP BY e.id, aac.active_count, e.last_assign_at
 ORDER BY COALESCE(aac.active_count, 0) ASC, COALESCE(e.last_assign_at, '1970-01-01'::timestamp) ASC NULLS FIRST
 LIMIT $1
 `

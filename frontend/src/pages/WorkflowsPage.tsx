@@ -63,11 +63,11 @@ interface ActionNodeDraft {
 interface ConditionPredicateDraft {
   attribute: WorkflowPredicateAttribute
   comparison: WorkflowComparison
-  // для clientEmail / themeId — список выбранных значений
+  // для clientEmail / themeId - список выбранных значений
   selectedValues: string[]
-  // для text — произвольный текст
+  // для text - произвольный текст
   valuesText: string
-  // для messageCreatedAt — два времени (HH:MM, Moscow)
+  // для messageCreatedAt - два времени (HH:MM, Moscow)
   intervalStart: string
   intervalEnd:   string
 }
@@ -135,7 +135,7 @@ function moscowTimeToUtcIso(timeHHMM: string): string {
 
 /**
  * Обратное преобразование: UTC ISO → HH:MM в московском времени.
- * Используется при заполнении формы редактирования из сохранённого воркфлоу.
+ * Используется при заполнении формы редактирования из сохранённой автоматизации.
  */
 function utcIsoToMoscowHHMM(iso: string): string {
   const date = new Date(iso)
@@ -345,7 +345,7 @@ function PredicateValueEditor({ predicate, clientEmails, themes, onChange }: Pre
   )
 }
 
-// ─── Компонент формы воркфлоу (создание и редактирование) ────────────────────
+// ─── Компонент формы автоматизации (создание и редактирование) ────────────────
 
 interface WorkflowFormProps {
   initialName: string
@@ -405,7 +405,7 @@ function WorkflowForm({
 
   const buildPayload = (): Omit<Workflow, 'id'> => {
     const workflowName = name.trim()
-    if (!workflowName) throw new Error('Укажите название воркфлоу')
+    if (!workflowName) throw new Error('Укажите название автоматизации')
     if (startComparison === 'Eq' && selectedClientEmails.length === 0)
       throw new Error('Выберите хотя бы один email клиента')
 
@@ -532,7 +532,7 @@ function WorkflowForm({
       {/* ── Блок клиентов ── */}
       <div style={sectionCard}>
         <h4 style={sectionTitle}>Клиенты</h4>
-        <p style={hintStyle}>Укажите клиентов, для которых будет срабатывать воркфлоу.</p>
+        <p style={hintStyle}>Укажите клиентов, для которых будет срабатывать автоматизация.</p>
         <label style={labelStyle}>
           Режим
           <select
@@ -785,7 +785,7 @@ export default function WorkflowsPage() {
   // ── Удаление ──────────────────────────────────────────────────────────────
 
   const removeWorkflow = async (id: number) => {
-    if (!window.confirm('Удалить воркфлоу?')) return
+    if (!window.confirm('Удалить автоматизацию?')) return
     try { await workflowApi.delete(id); setItems(prev => prev.filter(x => x.id !== id)) }
     catch (e) { setError(String(e)) }
   }
@@ -798,7 +798,7 @@ export default function WorkflowsPage() {
   return (
     <div style={pageStyle}>
       <div style={titleRow}>
-        <h2 style={{ margin: 0 }}>Воркфлоу</h2>
+        <h2 style={{ margin: 0 }}>Автоматизация</h2>
         <button style={primaryBtn} onClick={() => setCreateOpen(true)}>Создать</button>
       </div>
 
@@ -833,7 +833,7 @@ export default function WorkflowsPage() {
 
       {/* ── Модалка создания ── */}
       {createOpen && (
-        <Modal title="Создание воркфлоу" onClose={() => setCreateOpen(false)}>
+        <Modal title="Создание автоматизации" onClose={() => setCreateOpen(false)}>
           <WorkflowForm
             initialName=""
             initialStatus="active"
@@ -843,7 +843,7 @@ export default function WorkflowsPage() {
             clientEmails={clientEmails}
             themes={themes}
             teams={teams}
-            submitLabel="Создать воркфлоу"
+            submitLabel="Создать автоматизацию"
             onSubmit={async payload => {
               await workflowApi.create(payload)
               setCreateOpen(false)
@@ -856,7 +856,7 @@ export default function WorkflowsPage() {
       {/* ── Модалка редактирования ── */}
       {editWorkflow && editDraft && (
         <Modal
-          title={`Воркфлоу #${editWorkflow.id}`}
+          title={`ID автоматизации: ${editWorkflow.id}`}
           onClose={() => setEditWorkflow(null)}
         >
           <WorkflowForm

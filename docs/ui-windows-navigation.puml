@@ -1,0 +1,160 @@
+@startuml
+title UI Windows Navigation (from docs/ui-mockups)
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam ArrowColor #4F6EF7
+skinparam RectangleBorderColor #444444
+skinparam RectangleBackgroundColor #F9FAFF
+
+rectangle "Employees List" as employees_list
+rectangle "Employees Create" as employees_create
+rectangle "Employees Edit" as employees_edit
+
+rectangle "Clients List" as clients_list
+rectangle "Clients Create" as clients_create
+rectangle "Clients Edit" as clients_edit
+
+rectangle "Themes List" as themes_list
+rectangle "Themes Create" as themes_create
+rectangle "Themes Edit" as themes_edit
+
+rectangle "Subthemes List" as subthemes_list
+rectangle "Subthemes Create" as subthemes_create
+rectangle "Subthemes Edit" as subthemes_edit
+
+rectangle "Appeals List" as appeals_list
+rectangle "Appeals Create" as appeals_create
+rectangle "Appeals Edit" as appeals_edit
+rectangle "Appeal Detail" as appeal_detail
+
+rectangle "Slots List" as slots_list
+rectangle "Slots Create" as slots_create
+rectangle "Slots Edit" as slots_edit
+
+rectangle "Teams List" as teams_list
+rectangle "Teams Create" as teams_create
+rectangle "Teams Edit" as teams_edit
+
+rectangle "Workflows List" as workflows_list
+rectangle "Workflows Create" as workflows_create
+rectangle "Workflows Edit" as workflows_edit
+
+rectangle "App Start" as app_start
+app_start --> employees_list : app start
+
+' Sidebar navigation between list pages
+employees_list --> clients_list : sidebar
+employees_list --> themes_list : sidebar
+employees_list --> subthemes_list : sidebar
+employees_list --> appeals_list : sidebar
+employees_list --> slots_list : sidebar
+employees_list --> teams_list : sidebar
+employees_list --> workflows_list : sidebar
+
+clients_list --> employees_list : sidebar
+clients_list --> themes_list : sidebar
+clients_list --> subthemes_list : sidebar
+clients_list --> appeals_list : sidebar
+clients_list --> slots_list : sidebar
+clients_list --> teams_list : sidebar
+clients_list --> workflows_list : sidebar
+
+themes_list --> employees_list : sidebar
+themes_list --> clients_list : sidebar
+themes_list --> subthemes_list : sidebar
+themes_list --> appeals_list : sidebar
+themes_list --> slots_list : sidebar
+themes_list --> teams_list : sidebar
+themes_list --> workflows_list : sidebar
+
+subthemes_list --> employees_list : sidebar
+subthemes_list --> clients_list : sidebar
+subthemes_list --> themes_list : sidebar
+subthemes_list --> appeals_list : sidebar
+subthemes_list --> slots_list : sidebar
+subthemes_list --> teams_list : sidebar
+subthemes_list --> workflows_list : sidebar
+
+appeals_list --> employees_list : sidebar
+appeals_list --> clients_list : sidebar
+appeals_list --> themes_list : sidebar
+appeals_list --> subthemes_list : sidebar
+appeals_list --> slots_list : sidebar
+appeals_list --> teams_list : sidebar
+appeals_list --> workflows_list : sidebar
+
+slots_list --> employees_list : sidebar
+slots_list --> clients_list : sidebar
+slots_list --> themes_list : sidebar
+slots_list --> subthemes_list : sidebar
+slots_list --> appeals_list : sidebar
+slots_list --> teams_list : sidebar
+slots_list --> workflows_list : sidebar
+
+teams_list --> employees_list : sidebar
+teams_list --> clients_list : sidebar
+teams_list --> themes_list : sidebar
+teams_list --> subthemes_list : sidebar
+teams_list --> appeals_list : sidebar
+teams_list --> slots_list : sidebar
+teams_list --> workflows_list : sidebar
+
+workflows_list --> employees_list : sidebar
+workflows_list --> clients_list : sidebar
+workflows_list --> themes_list : sidebar
+workflows_list --> subthemes_list : sidebar
+workflows_list --> appeals_list : sidebar
+workflows_list --> slots_list : sidebar
+workflows_list --> teams_list : sidebar
+
+' CRUD modal flows
+employees_list --> employees_create : create
+employees_create --> employees_list : save/cancel
+employees_list --> employees_edit : edit
+employees_edit --> employees_list : save/cancel
+
+clients_list --> clients_create : create
+clients_create --> clients_list : save/cancel
+clients_list --> clients_edit : edit
+clients_edit --> clients_list : save/cancel
+
+themes_list --> themes_create : create
+themes_create --> themes_list : save/cancel
+themes_list --> themes_edit : edit
+themes_edit --> themes_list : save/cancel
+
+subthemes_list --> subthemes_create : create
+subthemes_create --> subthemes_list : save/cancel
+subthemes_list --> subthemes_edit : edit
+subthemes_edit --> subthemes_list : save/cancel
+
+appeals_list --> appeals_create : create
+appeals_create --> appeals_list : save/cancel
+appeals_list --> appeals_edit : edit
+appeals_edit --> appeals_list : save/cancel
+appeals_list --> appeal_detail : open item
+appeal_detail --> appeals_list : back
+
+slots_list --> slots_create : create
+slots_create --> slots_list : save/cancel
+slots_list --> slots_edit : edit
+slots_edit --> slots_list : save/cancel
+
+teams_list --> teams_create : create
+teams_create --> teams_list : save/cancel
+teams_list --> teams_edit : edit
+teams_edit --> teams_list : save/cancel
+
+workflows_list --> workflows_create : create
+workflows_create --> workflows_list : save/cancel
+workflows_list --> workflows_edit : edit
+workflows_edit --> workflows_list : save/cancel
+
+note bottom
+Create/Edit windows in docs are modal variants,
+but represented as separate windows for clarity.
+end note
+
+@enduml

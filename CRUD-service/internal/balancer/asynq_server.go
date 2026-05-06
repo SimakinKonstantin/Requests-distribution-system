@@ -20,7 +20,7 @@ func NewWorkers(redisAddr string, balancerUpdate *BalancerUpdateService, matcher
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisAddr},
 		asynq.Config{
-			Concurrency: 10,
+			Concurrency: 10, // Сколько job'ов выполняется конкурентно.
 			Queues: map[string]int{
 				"state-high":   6,
 				"state-medium": 3,
@@ -62,4 +62,3 @@ func EnqueueDistributionTickOnce(ctx context.Context, c *asynq.Client) {
 		log.Printf("enqueue initial distribution tick failed: %v", err)
 	}
 }
-

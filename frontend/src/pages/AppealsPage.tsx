@@ -40,7 +40,7 @@ export default function AppealsPage() {
   const closeCreate = () => setCreateModal(false)
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    await create({ ...createForm, employeeId: null, status: 'active' })
+    await create({ ...createForm, employeeId: null, teamId: null, status: 'active' })
     closeCreate()
   }
 
@@ -48,12 +48,12 @@ export default function AppealsPage() {
   const [editModal, setEditModal] = useState(false)
   const [editing, setEditing] = useState<Appeal | null>(null)
   const [editForm, setEditForm] = useState<EditForm>({
-    clientId: 0, employeeId: null, themeId: 0, subthemeId: null, text: '', status: 'active',
+    clientId: 0, employeeId: null, teamId: null, themeId: 0, subthemeId: null, text: '', status: 'active',
   })
   const openEdit = (item: Appeal) => {
     setEditing(item)
     setEditForm({
-      clientId: item.clientId, employeeId: item.employeeId,
+      clientId: item.clientId, employeeId: item.employeeId, teamId: item.teamId,
       themeId: item.themeId, subthemeId: item.subthemeId,
       text: item.text, status: item.status,
     })
@@ -87,7 +87,7 @@ export default function AppealsPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <h2 style={{ margin: 0 }}>Обращения</h2>
           <span style={pollBadge} title="Short polling active">
-            {'\u21bb'} {POLL_MS / 1000} с
+            Обновление: {POLL_MS / 1000} с
           </span>
         </div>
         <button style={btnPrimary} onClick={openCreate}>+ Добавить</button>

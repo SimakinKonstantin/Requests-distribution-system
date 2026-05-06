@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { appealApi, clientApi, employeeApi, subthemeApi, themeApi } from '../api'
+import { appealApi, clientApi, employeeApi, subthemeApi, teamApi, themeApi } from '../api'
 import { usePolling } from '../hooks/usePolling'
-import type { Appeal, Client, Employee, Subtheme, Theme } from '../types'
+import type { Appeal, Client, Employee, Subtheme, Team, Theme } from '../types'
 
 const POLL_MS = 3000
 
@@ -21,12 +21,14 @@ export default function AppealDetailPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [themes, setThemes] = useState<Theme[]>([])
   const [subthemes, setSubthemes] = useState<Subtheme[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
 
   useEffect(() => {
     clientApi.getAll().then(setClients).catch(() => {})
     employeeApi.getAll().then(setEmployees).catch(() => {})
     themeApi.getAll().then(setThemes).catch(() => {})
     subthemeApi.getAll().then(setSubthemes).catch(() => {})
+    teamApi.getAll().then(setTeams).catch(() => {})
   }, [])
 
   // Загрузка конкретного обращения
@@ -44,7 +46,7 @@ export default function AppealDetailPage() {
 
   useEffect(() => { void fetchAppeal() }, [fetchAppeal])
 
-  // Short polling — активен всегда, пока страница открыта
+  // Short polling - активен всегда, пока страница открыта
   usePolling(fetchAppeal, POLL_MS)
 
   // Закрытие обращения
@@ -64,7 +66,8 @@ export default function AppealDetailPage() {
   const clientEmail   = (id: number) => clients.find(c => c.id === id)?.email   ?? `#${id}`
   const employeeEmail = (id: number) => employees.find(e => e.id === id)?.email ?? `#${id}`
   const themeName     = (id: number) => themes.find(t => t.id === id)?.name     ?? `#${id}`
-  const subthemeName  = (id: number | null) => id == null ? '—' : (subthemes.find(s => s.id === id)?.name  ?? `#${id}`)
+  const subthemeName  = (id: number | null) => id == null ? 'не назначен' : (subthemes.find(s => s.id === id)?.name  ?? `#${id}`)
+  const teamName      = (id: number) => teams.find(t => t.id === id)?.name ?? `#${id}`
 
   if (loading) return <div style={page}><p>Загрузка...</p></div>
   if (error)   return <div style={page}><p style={{ color: 'red' }}>{error}</p></div>
@@ -80,11 +83,11 @@ export default function AppealDetailPage() {
           ← Назад
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h2 style={{ margin: 0 }}>Обращение #{appeal.id}</h2>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>ID обращения: {appeal.id}</h2>
           <span style={isClosed ? closedBadge : activeBadge}>
             {isClosed ? 'закрыто' : 'активно'}
           </span>
-          <span style={pollBadge}>&#x21BB; {POLL_MS / 1000} с</span>
+          <span style={pollBadge}>Обновление: {POLL_MS / 1000} с</span>
         </div>
         {!isClosed && (
           <button style={closeBtn} onClick={handleClose} disabled={closing}>
@@ -97,10 +100,16 @@ export default function AppealDetailPage() {
       <div style={card}>
         <Row label="Клиент">{clientEmail(appeal.clientId)}</Row>
 
+        <Row label="Текущая команда">
+          {appeal.teamId != null
+            ? <span style={assignedBadge}>ID {appeal.teamId}: {teamName(appeal.teamId)}</span>
+            : <span style={pendingBadge}>не назначен</span>}
+        </Row>
+
         <Row label="Сотрудник">
           {appeal.employeeId
             ? <span style={assignedBadge}>{employeeEmail(appeal.employeeId)}</span>
-            : <span style={pendingBadge}>&#x23F3; ожидает назначения...</span>}
+            : <span style={pendingBadge}>не назначен</span>}
         </Row>
 
         <Row label="Тема">{themeName(appeal.themeId)}</Row>
@@ -115,7 +124,7 @@ export default function AppealDetailPage() {
       {/* Подсказка про поллинг */}
       <p style={pollHint}>
         Страница автоматически обновляется каждые {POLL_MS / 1000} секунды.
-        Как только сторонний сервис назначит сотрудника, изменение отобразится здесь.
+        Как только сервис назначит команду или сотрудника, изменение отобразится здесь.
       </p>
     </div>
   )

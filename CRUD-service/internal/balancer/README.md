@@ -39,7 +39,7 @@ go run ./cmd/server
 
 ## Формат ивента
 
-Сообщение в очереди RabbitMQ — JSON:
+Сообщение в очереди RabbitMQ - JSON:
 
 ```json
 {

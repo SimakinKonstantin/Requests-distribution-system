@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Слоты - макет</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f7f8fb;
+      color: #222;
+      min-height: 100vh;
+    }
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .title-row h2 { margin: 0; font-size: 22px; font-weight: 700; }
+    .btn-primary {
+      background: #4f6ef7;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 18px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .hint { font-size: 13px; color: #666; margin-bottom: 16px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 6px rgba(0,0,0,.07);
+    }
+    th {
+      text-align: left;
+      padding: 12px 16px;
+      background: #f5f6fa;
+      font-weight: 600;
+      color: #555;
+      font-size: 13px;
+    }
+    td {
+      padding: 11px 16px;
+      border-top: 1px solid #f0f0f0;
+      font-size: 14px;
+    }
+    .btn-sm {
+      margin-right: 6px;
+      padding: 5px 12px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 13px;
+      background: #e8eaff;
+      color: #4f6ef7;
+      font-weight: 500;
+    }
+    .btn-danger { background: #fff0f0; color: #e53e3e; }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-box {
+      background: #fff;
+      border-radius: 10px;
+      padding: 24px 28px;
+      min-width: 360px;
+      max-width: 560px;
+      width: 100%;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .modal-header h3 { margin: 0; font-size: 18px; }
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      color: #888;
+      line-height: 1;
+    }
+    .form-grid { display: flex; flex-direction: column; gap: 12px; }
+    .label {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #444;
+    }
+    .input {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+    }
+    .submit-row { margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="title-row">
+      <h2>Слоты</h2>
+      <button type="button" class="btn-primary">+ Добавить</button>
+    </div>
+    <p class="hint">Макет для документации / импорта в Figma. Данные в таблице - пример.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>ID сотрудника</th>
+          <th>ID обращения</th>
+          <th>Будет удален</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>101</td>
+          <td>-</td>
+          <td>Нет</td>
+          <td>
+            <button type="button" class="btn-sm">Изменить</button>
+            <button type="button" class="btn-sm btn-danger">Удалить</button>
+          </td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>102</td>
+          <td>5001</td>
+          <td>Нет</td>
+          <td>
+            <button type="button" class="btn-sm">Изменить</button>
+            <button type="button" class="btn-sm btn-danger">Удалить</button>
+          </td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>103</td>
+          <td>-</td>
+          <td>Да</td>
+          <td>
+            <button type="button" class="btn-sm">Изменить</button>
+            <button type="button" class="btn-sm btn-danger">Удалить</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="overlay" aria-hidden="true">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Новый слот</h3>
+        <button type="button" class="close-btn" title="Закрыть">×</button>
+      </div>
+      <form class="form-grid" onsubmit="return false;">
+        <label class="label">ID сотрудника
+          <input class="input" type="number" value="101" required />
+        </label>
+        <label class="label">ID обращения (может быть пустым)
+          <input class="input" type="number" placeholder="" />
+        </label>
+        <div class="submit-row">
+          <button type="submit" class="btn-primary">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

@@ -24,7 +24,7 @@ type appealDB struct {
 }
 
 // toAppealDB converts a domain Appeal to the DB struct.
-// EmployeeID, SubthemeID and TeamID are pointers — nil is stored as NULL.
+// EmployeeID, SubthemeID and TeamID are pointers - nil is stored as NULL.
 func toAppealDB(a model.Appeal) appealDB {
 	empID := sql.NullInt64{}
 	if a.EmployeeID != nil {

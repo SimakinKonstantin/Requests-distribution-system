@@ -111,7 +111,7 @@ func (s *EventHandlerService) handleDelivery(ctx context.Context, msg amqp.Deliv
 }
 
 func (s *EventHandlerService) addEventToBatch(ctx context.Context, e ProcessedEvent) {
-	key := s.dedupeKey(e)
+	key := s.createJobName(e)
 
 	s.mu.Lock()
 	s.batch[key] = e
@@ -138,11 +138,11 @@ func (s *EventHandlerService) flush(ctx context.Context) {
 	s.mu.Unlock()
 
 	grouped := groupEventsByType(events)
-	for batchType, evs := range grouped {
-		if len(evs) == 0 {
+	for batchType, events := range grouped {
+		if len(events) == 0 {
 			continue
 		}
-		task, err := NewBatchUpdateTask(BatchUpdatePayload{Type: batchType, Events: evs})
+		task, err := NewBatchUpdateTask(BatchUpdatePayload{Type: batchType, Events: events})
 		if err != nil {
 			log.Printf("event-handler: make task failed: %v", err)
 			continue
@@ -157,13 +157,15 @@ func (s *EventHandlerService) flush(ctx context.Context) {
 	}
 }
 
-func (s *EventHandlerService) dedupeKey(e ProcessedEvent) string {
+func (s *EventHandlerService) createJobName(e ProcessedEvent) string {
 	return string(e.Name) + "_" + strconv.Itoa(e.Payload.AppealID)
 }
 
 func groupEventsByType(events []ProcessedEvent) map[JobBatchType][]ProcessedEvent {
 	out := map[JobBatchType][]ProcessedEvent{
-		BatchAppealStatusChanges:       {},
+		BatchAppealStatusChanges: {},
+
+		// todo Этот ивент не используется.
 		BatchManagerAvailabilityChange: {},
 		BatchDistributionRequests:      {},
 	}
@@ -184,6 +186,8 @@ func queueForBatchType(t JobBatchType) string {
 	switch t {
 	case BatchAppealStatusChanges:
 		return "state-high"
+
+	// todo Этот ивент не используется.
 	case BatchManagerAvailabilityChange:
 		return "state-medium"
 	case BatchDistributionRequests:

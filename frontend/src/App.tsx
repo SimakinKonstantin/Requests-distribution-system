@@ -17,7 +17,7 @@ const navItems = [
   { to: '/appeals',   label: 'Обращения' },
   { to: '/slots',     label: 'Слоты' },
   { to: '/teams',     label: 'Команды' },
-  { to: '/workflows', label: 'Воркфлоу' },
+  { to: '/workflows', label: 'Автоматизация' },
 ]
 
 export default function App() {

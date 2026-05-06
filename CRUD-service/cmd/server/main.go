@@ -68,7 +68,7 @@ func main() {
 	h := handler.New(employeeSvc, slotSvc, appealSvc, subthemeSvc, clientSvc, themeSvc, teamSvc, workflowSvc)
 	router := h.InitRoutes()
 
-	// Balancer subsystem — запускается всегда когда задан RABBIT_URL.
+	// Balancer subsystem - запускается всегда когда задан RABBIT_URL.
 	// Если RABBIT_URL не задан (локальная разработка без RabbitMQ), балансировщик пропускается.
 	if cfg.RabbitURL == "" {
 		log.Println("balancer: RABBIT_URL not set, skipping balancer startup")

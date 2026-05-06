@@ -237,9 +237,9 @@ func pickBestManager(candidates []*employeeState, freeSlots map[int][]model.Slot
 			best = cur
 			continue
 		}
-		if countFreeSlots(cur, freeSlots) > countFreeSlots(best, freeSlots) {
-			best = cur
-		}
+		// if countFreeSlots(cur, freeSlots) > countFreeSlots(best, freeSlots) {
+		// 	best = cur
+		// }
 	}
 	return best
 }

@@ -146,7 +146,7 @@ export default function TeamsPage() {
                         onChange={e => updateRow(idx, { themeId: Number(e.target.value) })}
                         required
                       >
-                        <option value={0} disabled>— выберите —</option>
+                        <option value={0} disabled>- выберите -</option>
                         {themes.map(t => (
                           <option key={t.id} value={t.id}>({t.id}) {t.name}</option>
                         ))}
@@ -164,7 +164,7 @@ export default function TeamsPage() {
                           updateRow(idx, { subthemeId: v === 0 ? null : v })
                         }}
                       >
-                        <option value={0}>— нет —</option>
+                        <option value={0}>- нет -</option>
                         {subthemes.map(s => (
                           <option key={s.id} value={s.id}>({s.id}) {s.name}</option>
                         ))}

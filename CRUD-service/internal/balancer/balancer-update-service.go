@@ -30,10 +30,10 @@ func (s *BalancerUpdateService) HandleBatchUpdateTask(ctx context.Context, t *as
 	case BatchAppealStatusChanges:
 		return s.processBatchAppealUpdates(ctx, p.Events)
 	case BatchDistributionRequests:
-		// For demo we piggy-back on appeal updates: ensure appeal is in pending set.
 		return s.processBatchAppealUpdates(ctx, p.Events)
+
+	// todo Этот ивент не используется.
 	case BatchManagerAvailabilityChange:
-		// Not used in simplified demo.
 		return nil
 	default:
 		return nil
@@ -41,7 +41,7 @@ func (s *BalancerUpdateService) HandleBatchUpdateTask(ctx context.Context, t *as
 }
 
 func (s *BalancerUpdateService) processBatchAppealUpdates(ctx context.Context, events []ProcessedEvent) error {
-	// Deduplicate by appealId (similar to BaseStateWorker.processBatchAppealUpdates).
+	// В одном пэйлоуде лежат одни и те же ивенты. Таким образом, происходит защита от обработки одного и того же ивента несколько раз.
 	unique := make(map[int]ProcessedEvent, len(events))
 	for _, e := range events {
 		if e.Payload.AppealID != 0 {
@@ -58,12 +58,11 @@ func (s *BalancerUpdateService) processBatchAppealUpdates(ctx context.Context, e
 				errs = append(errs, fmt.Errorf("appeal %d needs_distribution: %w", appealID, err))
 			}
 		case EventAppealClosed:
-			if err := s.appealService.Close(appealID); err != nil {
+			if _, err := s.appealService.Close(appealID); err != nil {
 				log.Printf("balancer-update: close appeal %d failed: %v", appealID, err)
 				errs = append(errs, fmt.Errorf("appeal %d closed: %w", appealID, err))
 			}
 		default:
-			// ignore
 		}
 	}
 

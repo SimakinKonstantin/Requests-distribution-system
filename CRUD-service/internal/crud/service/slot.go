@@ -4,6 +4,7 @@ import (
 	"crud-service/internal/crud/model"
 	"crud-service/internal/crud/repository"
 	"fmt"
+	"log/slog"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -68,6 +69,12 @@ func (s *slotService) UpdateCount(employeeID int, newCount int) error {
 	defer func() {
 		if err != nil {
 			tx.Rollback()
+			slog.Error(fmt.Sprintf("Error rolling back transaction: %s", err))
+			return
+		}
+
+		if err = tx.Commit(); err != nil {
+			slog.Error(fmt.Sprintf("Error committing transaction: %s", err.Error()))
 		}
 	}()
 
@@ -76,15 +83,21 @@ func (s *slotService) UpdateCount(employeeID int, newCount int) error {
 		return fmt.Errorf("slotService.UpdateCount get slots count: %w", err)
 	}
 
+	slog.Info(fmt.Sprintf("currentCount: %d, newCount: %d", currentCount, newCount))
+
 	if currentCount == newCount {
 		return nil
 	}
 
 	if currentCount < newCount {
+		slog.Info("currentCount < newCount")
 		needToRemoveSlots, err := s.repo.GetNeedToRemoveSlots(employeeID)
 		if err != nil {
 			return fmt.Errorf("slotService.UpdateCount get need to remove slots: %w", err)
 		}
+
+		slog.Info(fmt.Sprintf("needToRemoveSlots: %d", len(needToRemoveSlots)))
+		slog.Info(fmt.Sprintf("needToRemoveSlots: %v", needToRemoveSlots))
 
 		for _, slot := range needToRemoveSlots {
 			err := s.repo.SetNeedToRemoveValue(tx, slot, false)
@@ -111,10 +124,14 @@ func (s *slotService) UpdateCount(employeeID int, newCount int) error {
 	}
 
 	if currentCount > newCount {
+		slog.Info("currentCount > newCount")
 		freeSlots, err := s.repo.GetFreeSlots(employeeID)
 		if err != nil {
 			return fmt.Errorf("slotService.UpdateCount get free slots: %w", err)
 		}
+
+		slog.Info(fmt.Sprintf("freeSlots: %d", len(freeSlots)))
+		slog.Info(fmt.Sprintf("freeSlots: %v", freeSlots))
 
 		// Сначала удаляем все свободные слоты.
 		for _, slot := range freeSlots {
@@ -139,9 +156,6 @@ func (s *slotService) UpdateCount(employeeID int, newCount int) error {
 		return nil
 	}
 
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("slotService.UpdateCount commit transaction: %w", err)
-	}
 	return nil
 }
 
@@ -175,7 +189,7 @@ func (s *slotService) FetchFreeSlotsByEmployees(employeeIDs []int) (map[int][]mo
 	const q = `
 SELECT id, employee_id, appeal_id, updated_at
 FROM slots
-WHERE employee_id = ANY($1) AND appeal_id IS NULL
+WHERE employee_id = ANY($1) AND appeal_id IS NULL AND need_to_remove = FALSE
 ORDER BY employee_id, updated_at ASC
 `
 	ids := make([]int64, len(employeeIDs))

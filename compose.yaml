@@ -39,6 +39,11 @@ services:
       - REDIS_ADDR=redis:6379
       - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
       - RABBIT_QUEUE=balancer.events
+      - BATCH_SIZE=50
+      - BATCH_TIMEOUT_MS=1000
+      - MATCHER_TICK_MS=1000
+      - FETCH_APPEALS_LIMIT=50
+      - FETCH_MANAGERS_LIMIT=50
 
   postgres-crud:
     image: postgres:17

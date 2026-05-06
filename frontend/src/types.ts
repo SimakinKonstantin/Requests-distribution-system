@@ -40,6 +40,7 @@ export interface Appeal {
   id: number
   clientId: number
   employeeId: number | null
+  teamId: number | null
   themeId: number
   subthemeId: number | null
   text: string

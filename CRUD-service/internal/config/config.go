@@ -15,10 +15,6 @@ type Config struct {
 	// Balancer subsystem
 	BalancerRole string
 
-	// Balancer uses the same Postgres DB as the CRUD-service (DATABASE_URL),
-	// but can be overridden with POSTGRES_DSN.
-	BalancerPostgresDSN string
-
 	RedisAddr   string
 	RabbitURL   string
 	RabbitQueue string
@@ -35,15 +31,11 @@ type Config struct {
 // Load reads configuration from environment variables with sensible defaults.
 func Load() *Config {
 	databaseURL := getEnv("DATABASE_URL", "")
-	// Balancer may reuse the same DB; override with POSTGRES_DSN if needed.
-	postgresDSN := getEnv("POSTGRES_DSN", databaseURL)
-
 	return &Config{
 		ConnectionString: databaseURL,
 		ServerAddr:       getEnv("SERVER_ADDR", ":8080"),
 
-		BalancerRole:        getEnv("ROLE", "all"),
-		BalancerPostgresDSN: postgresDSN,
+		BalancerRole: getEnv("ROLE", "all"),
 
 		RedisAddr:   getEnv("REDIS_ADDR", "redis:6379"),
 		RabbitURL:   getEnv("RABBIT_URL", ""),

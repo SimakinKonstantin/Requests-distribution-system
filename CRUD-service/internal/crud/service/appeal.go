@@ -25,7 +25,7 @@ type AppealService interface {
 	Create(a model.Appeal) (model.Appeal, error)
 	Update(id int, a model.Appeal) (model.Appeal, error)
 	Delete(id int) error
-	Close(id int) error
+	Close(id int) (model.Appeal, error)
 	Assign(appealID int, employeeID int, slotID int) error
 	UpsertPendingAppealByID(appealID int) error
 	FetchPendingAppeals(limit int) ([]PendingAppeal, error)
@@ -168,10 +168,13 @@ func (s *appealService) Delete(id int) error {
 	return nil
 }
 
-func (s *appealService) Close(id int) error {
+func (s *appealService) Close(id int) (model.Appeal, error) {
+
+	slog.Error(fmt.Sprintf("appealService.Close: %d", id))
+
 	tx, err := s.db.Beginx()
 	if err != nil {
-		return fmt.Errorf("appealService.Close start transaction: %w", err)
+		return model.Appeal{}, fmt.Errorf("appealService.Close start transaction: %w", err)
 	}
 
 	defer func() {
@@ -187,55 +190,55 @@ func (s *appealService) Close(id int) error {
 		}
 	}()
 
-	_, err = s.appealRepo.Close(tx, id)
+	closedAppeal, err := s.appealRepo.Close(tx, id)
 	if err != nil {
-		return fmt.Errorf("appealService.Close close appeal: %w", err)
+		return model.Appeal{}, fmt.Errorf("appealService.Close close appeal: %w", err)
 	}
 
 	slot, err := s.slotRepo.GetSlotByAppealID(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil
+			return closedAppeal, nil
 		}
 
-		return fmt.Errorf("appealService.Close get slot: %w", err)
+		return model.Appeal{}, fmt.Errorf("appealService.Close get slot: %w", err)
 	}
 
 	if slot.NeedToRemove {
 		err = s.slotRepo.Delete(tx, slot.ID)
 		if err != nil {
-			return fmt.Errorf("appealService.Close delete slot: %w", err)
+			return model.Appeal{}, fmt.Errorf("appealService.Close delete slot: %w", err)
 		}
 
-		return nil
+		return closedAppeal, nil
 	}
 
 	needToRemoveSlot, err := s.slotRepo.GetNeedToRemoveSlot(slot.EmployeeID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("appealService.Close get need to remove slot: %w", err)
+		return model.Appeal{}, fmt.Errorf("appealService.Close get need to remove slot: %w", err)
 	}
 
 	// Если есть needToRemoveSlot, то всю информацию с него переносим на этот слот.
 	if !errors.Is(err, sql.ErrNoRows) {
 		_, err = s.slotRepo.Update(tx, slot.ID, model.Slot{EmployeeID: needToRemoveSlot.EmployeeID, AppealID: needToRemoveSlot.AppealID, NeedToRemove: false})
 		if err != nil {
-			return fmt.Errorf("appealService.Close update need to remove slot: %w", err)
+			return model.Appeal{}, fmt.Errorf("appealService.Close update need to remove slot: %w", err)
 		}
 
 		err = s.slotRepo.Delete(tx, needToRemoveSlot.ID)
 		if err != nil {
-			return fmt.Errorf("appealService.Close delete need to remove slot: %w", err)
+			return model.Appeal{}, fmt.Errorf("appealService.Close delete need to remove slot: %w", err)
 		}
 
-		return nil
+		return closedAppeal, nil
 	}
 
 	_, err = s.slotRepo.Update(tx, slot.ID, model.Slot{EmployeeID: slot.EmployeeID, AppealID: nil, NeedToRemove: false})
 	if err != nil {
-		return fmt.Errorf("appealService.Close update slot: %w", err)
+		return model.Appeal{}, fmt.Errorf("appealService.Close update slot: %w", err)
 	}
 
-	return nil
+	return closedAppeal, nil
 }
 
 func (s *appealService) IsImportant(appealID int) bool {
@@ -313,6 +316,10 @@ func (s *appealService) Assign(appealID int, employeeID int, slotID int) error {
 	if err := tx.QueryRow(`SELECT appeal_id FROM slots WHERE id = $1 AND employee_id = $2 FOR UPDATE`, slotID, employeeID).Scan(&slotAppealID); err != nil {
 		return fmt.Errorf("appealService.Assign get slot: %w", err)
 	}
+	// Защита от гонки: если слот уже занят другим обращением, не делаем назначение повторно.
+	if slotAppealID != nil {
+		return fmt.Errorf("appealService.Assign slot %d already occupied: %w", slotID, sql.ErrNoRows)
+	}
 
 	_, err = tx.Exec(`UPDATE appeals SET employee_id = $1, status = 'active' WHERE id = $2`, employeeID, appealID)
 	if err != nil {
@@ -349,9 +356,9 @@ func (s *appealService) UpsertPendingAppealByID(appealID int) error {
 	if appealInfo.EmployeeID != nil {
 		return s.pendingAppealRepo.RemovePendingAppeal(appealID)
 	}
-	priority := calculateAppealPriority(s.IsImportant(appealID), appealInfo.CreatedAt, time.Now())
+	priority := calculateAppealPriority(s.IsImportant(appealID), appealInfo.CreatedAt)
 
-	err = s.pendingAppealRepo.UpsertPendingAppealByID(appealID, appealInfo.TeamID, priority)
+	err = s.pendingAppealRepo.UpsertPendingAppealByID(appealID, priority)
 	if err != nil {
 		return fmt.Errorf("appealService.UpsertPendingAppealByID upsert pending appeal: %w", err)
 	}
@@ -359,18 +366,23 @@ func (s *appealService) UpsertPendingAppealByID(appealID int) error {
 	return err
 }
 
-func calculateAppealPriority(isImportant bool, createdAt time.Time, now time.Time) int64 {
-	group := 2
+// Функция вычисления приоритета обращения.
+func calculateAppealPriority(isImportant bool, createdAt time.Time) int64 {
+	now := time.Now()
+
+	// base рассчитывается в зависимости от статуса пользователя.
+	var base int64
 	if isImportant {
-		group = 0
-	}
-	if !isImportant {
-		group = 1
+		base = 2
+
+	} else {
+		base = 1
 	}
 
-	priority := int64((2 - group) * 1_000_000)
+	priority := int64(base * 100)
 
-	ageMinutes := (int64)(now.Sub(createdAt).Minutes())
+	// Рассчет времени жизни обращения в минутах.
+	ageMinutes := int64(now.Sub(createdAt).Minutes())
 	priority += ageMinutes * 10
 
 	return priority

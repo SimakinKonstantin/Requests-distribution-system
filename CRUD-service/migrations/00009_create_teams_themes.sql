@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS teams_themes (
     theme_id INTEGER NOT NULL REFERENCES themes(id) ON DELETE CASCADE,
     subtheme_id INTEGER REFERENCES subthemes(id) ON DELETE CASCADE,
     for_vip BOOLEAN NOT NULL,
-    UNIQUE (theme_id, subtheme_id, for_vip)
+    UNIQUE NULLS NOT DISTINCT (theme_id, subtheme_id, for_vip)
 );
 -- +goose StatementEnd
 
