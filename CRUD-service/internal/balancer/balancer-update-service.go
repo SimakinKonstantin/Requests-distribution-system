@@ -57,11 +57,6 @@ func (s *BalancerUpdateService) processBatchAppealUpdates(ctx context.Context, e
 				log.Printf("balancer-update: upsert pending appeal %d failed: %v", appealID, err)
 				errs = append(errs, fmt.Errorf("appeal %d needs_distribution: %w", appealID, err))
 			}
-		case EventAppealClosed:
-			if _, err := s.appealService.Close(appealID); err != nil {
-				log.Printf("balancer-update: close appeal %d failed: %v", appealID, err)
-				errs = append(errs, fmt.Errorf("appeal %d closed: %w", appealID, err))
-			}
 		default:
 		}
 	}

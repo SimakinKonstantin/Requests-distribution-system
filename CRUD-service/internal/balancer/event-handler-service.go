@@ -173,8 +173,6 @@ func groupEventsByType(events []ProcessedEvent) map[JobBatchType][]ProcessedEven
 		switch e.Name {
 		case EventAppealNeedsDistribution:
 			out[BatchDistributionRequests] = append(out[BatchDistributionRequests], e)
-		case EventAppealClosed:
-			out[BatchAppealStatusChanges] = append(out[BatchAppealStatusChanges], e)
 		default:
 			out[BatchDistributionRequests] = append(out[BatchDistributionRequests], e)
 		}

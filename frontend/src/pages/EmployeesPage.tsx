@@ -3,6 +3,11 @@ import { employeeApi, teamApi } from '../api'
 import { useCrud } from '../hooks/useCrud'
 import Modal from '../components/Modal'
 import type { Employee, Team } from '../types'
+import {
+  applyTextFieldValidity,
+  PERSON_NAME_PATTERN,
+  SURNAME_PATTERN,
+} from '../validation'
 
 type Form = Omit<Employee, 'id'> & { teamIds?: number[] }
 const empty: Form = { name: '', surname: '', limit: 0, teamId: 0, email: '', teamIds: [], status: 'working' }
@@ -13,14 +18,16 @@ export default function EmployeesPage() {
   const [editing, setEditing] = useState<Employee | null>(null)
   const [form, setForm] = useState<Form>(empty)
   const [teams, setTeams] = useState<Team[]>([])
+  const [formError, setFormError] = useState<string | null>(null)
 
   // load teams list
   useState(() => {
     teamApi.getAll().then(setTeams).catch(() => setTeams([]))
   })
 
-  const openCreate = () => { setForm(empty); setModal('create') }
+  const openCreate = () => { setForm(empty); setFormError(null); setModal('create') }
   const openEdit = (item: Employee) => {
+    setFormError(null)
     setEditing(item)
     // при просмотре/редактировании: teamIds не знаем -> по умолчанию текущая команда
     setForm({
@@ -34,7 +41,7 @@ export default function EmployeesPage() {
     })
     setModal('edit')
   }
-  const close = () => { setModal(null); setEditing(null) }
+  const close = () => { setModal(null); setEditing(null); setFormError(null) }
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm(f => ({ ...f, [k]: v }))
 
@@ -49,10 +56,26 @@ export default function EmployeesPage() {
     })
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (modal === 'create') await create(form)
-    else if (editing) await update(editing.id, form)
+    applyTextFieldValidity(e.currentTarget)
+    if (!e.currentTarget.checkValidity()) {
+      e.currentTarget.reportValidity()
+      return
+    }
+    const normalized: Form = {
+      ...form,
+      name: form.name.trim(),
+      surname: form.surname.trim(),
+      email: form.email.trim(),
+    }
+    const validationError = (normalized.teamIds?.length ?? 0) === 0 ? 'Выберите хотя бы одну команду' : null
+    if (validationError) {
+      setFormError(validationError)
+      return
+    }
+    if (modal === 'create') await create(normalized)
+    else if (editing) await update(editing.id, normalized)
     close()
   }
 
@@ -93,19 +116,31 @@ export default function EmployeesPage() {
           <form onSubmit={handleSubmit} style={formGrid}>
             <label style={label}>Имя
               <input style={input} value={form.name}
-                onChange={e => set('name', e.target.value)} required />
+                onChange={e => set('name', e.target.value)}
+                data-text-field="true"
+                pattern={PERSON_NAME_PATTERN}
+                title="Только русские буквы, пробел и дефис"
+                required />
             </label>
             <label style={label}>Фамилия
               <input style={input} value={form.surname}
-                onChange={e => set('surname', e.target.value)} required />
+                onChange={e => set('surname', e.target.value)}
+                data-text-field="true"
+                pattern={SURNAME_PATTERN}
+                title="Только русские буквы и дефис, дефис не может быть первым/последним"
+                required />
             </label>
             <label style={label}>Email
               <input style={input} type="email" value={form.email}
-                onChange={e => set('email', e.target.value)} required />
+                onChange={e => set('email', e.target.value)}
+                data-text-field="true"
+                required />
             </label>
             <label style={label}>Лимит
               <input style={input} type="number" value={form.limit}
-                onChange={e => set('limit', Number(e.target.value))} required />
+                onChange={e => set('limit', Number(e.target.value))}
+                min={0}
+                required />
             </label>
             <div style={{ fontWeight: 600, color: '#444' }}>Команды</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
@@ -133,6 +168,7 @@ export default function EmployeesPage() {
                 <option value="break">Перерыв</option>
               </select>
             </label>
+            {formError && <p style={{ margin: 0, color: '#e53e3e' }}>{formError}</p>}
             <button style={{ ...btnPrimary, marginTop: 8 }} type="submit">Сохранить</button>
           </form>
         </Modal>

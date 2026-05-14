@@ -3,6 +3,11 @@ import { clientApi } from '../api'
 import { useCrud } from '../hooks/useCrud'
 import Modal from '../components/Modal'
 import type { Client } from '../types'
+import {
+  applyTextFieldValidity,
+  PERSON_NAME_PATTERN,
+  SURNAME_PATTERN,
+} from '../validation'
 
 type Form = Omit<Client, 'id'>
 const empty: Form = { email: '', name: '', surname: '', isVip: false }
@@ -12,7 +17,6 @@ export default function ClientsPage() {
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
   const [editing, setEditing] = useState<Client | null>(null)
   const [form, setForm] = useState<Form>(empty)
-
   const openCreate = () => { setForm(empty); setModal('create') }
   const openEdit = (item: Client) => {
     setEditing(item)
@@ -21,10 +25,21 @@ export default function ClientsPage() {
   }
   const close = () => { setModal(null); setEditing(null) }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (modal === 'create') await create(form)
-    else if (editing) await update(editing.id, form)
+    applyTextFieldValidity(e.currentTarget)
+    if (!e.currentTarget.checkValidity()) {
+      e.currentTarget.reportValidity()
+      return
+    }
+    const normalized: Form = {
+      ...form,
+      email: form.email.trim(),
+      name: form.name.trim(),
+      surname: form.surname.trim(),
+    }
+    if (modal === 'create') await create(normalized)
+    else if (editing) await update(editing.id, normalized)
     close()
   }
 
@@ -64,15 +79,25 @@ export default function ClientsPage() {
           <form onSubmit={handleSubmit} style={formGrid}>
             <label style={label}>Email
               <input style={input} type="email" value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
+                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                data-text-field="true"
+                required />
             </label>
             <label style={label}>Имя
               <input style={input} value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                data-text-field="true"
+                pattern={PERSON_NAME_PATTERN}
+                title="Только русские буквы, пробел и дефис"
+                required />
             </label>
             <label style={label}>Фамилия
               <input style={input} value={form.surname}
-                onChange={e => setForm(f => ({ ...f, surname: e.target.value }))} required />
+                onChange={e => setForm(f => ({ ...f, surname: e.target.value }))}
+                data-text-field="true"
+                pattern={SURNAME_PATTERN}
+                title="Только русские буквы и дефис, дефис не может быть первым/последним"
+                required />
             </label>
             <label style={{ ...label, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <input type="checkbox" checked={form.isVip}

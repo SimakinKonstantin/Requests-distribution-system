@@ -15,6 +15,11 @@ import type {
   WorkflowPredicateAttribute,
   WorkflowStatus,
 } from '../types'
+import {
+  applyTextFieldValidity,
+  PERSON_NAME_PATTERN,
+  validateAppealText,
+} from '../validation'
 
 // ─── Словари ──────────────────────────────────────────────────────────────────
 
@@ -340,6 +345,7 @@ function PredicateValueEditor({ predicate, clientEmails, themes, onChange }: Pre
         placeholder="Через запятую или новую строку"
         value={valuesText}
         onChange={e => onChange({ valuesText: e.target.value })}
+        data-text-field="true"
       />
     </label>
   )
@@ -394,6 +400,10 @@ function WorkflowForm({
     }
     const values = p.valuesText.split(/[\n,]/).map(v => v.trim()).filter(Boolean)
     if (values.length === 0) throw new Error(`${label}: заполните текст`)
+    for (let i = 0; i < values.length; i++) {
+      const error = validateAppealText(values[i], `${label}: значение #${i + 1}`)
+      if (error) throw new Error(error)
+    }
     return values
   }
 
@@ -405,7 +415,6 @@ function WorkflowForm({
 
   const buildPayload = (): Omit<Workflow, 'id'> => {
     const workflowName = name.trim()
-    if (!workflowName) throw new Error('Укажите название автоматизации')
     if (startComparison === 'Eq' && selectedClientEmails.length === 0)
       throw new Error('Выберите хотя бы один email клиента')
 
@@ -499,8 +508,13 @@ function WorkflowForm({
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    applyTextFieldValidity(e.currentTarget)
+    if (!e.currentTarget.checkValidity()) {
+      e.currentTarget.reportValidity()
+      return
+    }
     setFormError(null)
     setSubmitting(true)
     try {
@@ -518,7 +532,15 @@ function WorkflowForm({
     <form onSubmit={handleSubmit} style={formStyle}>
       <label style={labelStyle}>
         Название
-        <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} required />
+        <input
+          style={inputStyle}
+          value={name}
+          onChange={e => setName(e.target.value)}
+          data-text-field="true"
+          pattern={PERSON_NAME_PATTERN}
+          title="Только русские буквы, пробел и дефис"
+          required
+        />
       </label>
 
       <label style={labelStyle}>

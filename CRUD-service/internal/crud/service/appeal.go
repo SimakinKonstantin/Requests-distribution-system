@@ -158,6 +158,10 @@ func (s *appealService) Delete(id int) error {
 		}
 	}()
 
+	if _, err := s.Close(id); err != nil {
+		return fmt.Errorf("appealService.Delete close appeal: %w", err)
+	}
+
 	if err = s.appealRepo.Delete(tx, id); err != nil {
 		return err
 	}
@@ -169,9 +173,6 @@ func (s *appealService) Delete(id int) error {
 }
 
 func (s *appealService) Close(id int) (model.Appeal, error) {
-
-	slog.Error(fmt.Sprintf("appealService.Close: %d", id))
-
 	tx, err := s.db.Beginx()
 	if err != nil {
 		return model.Appeal{}, fmt.Errorf("appealService.Close start transaction: %w", err)

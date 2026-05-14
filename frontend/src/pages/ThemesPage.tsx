@@ -3,6 +3,10 @@ import { themeApi } from '../api'
 import { useCrud } from '../hooks/useCrud'
 import Modal from '../components/Modal'
 import type { Theme } from '../types'
+import {
+  applyTextFieldValidity,
+  PERSON_NAME_PATTERN,
+} from '../validation'
 
 type Form = Omit<Theme, 'id'>
 const empty: Form = { name: '' }
@@ -21,10 +25,16 @@ export default function ThemesPage() {
   }
   const close = () => { setModal(null); setEditing(null) }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (modal === 'create') await create(form)
-    else if (editing) await update(editing.id, form)
+    applyTextFieldValidity(e.currentTarget)
+    if (!e.currentTarget.checkValidity()) {
+      e.currentTarget.reportValidity()
+      return
+    }
+    const normalized: Form = { name: form.name.trim() }
+    if (modal === 'create') await create(normalized)
+    else if (editing) await update(editing.id, normalized)
     close()
   }
 
@@ -61,7 +71,11 @@ export default function ThemesPage() {
           <form onSubmit={handleSubmit} style={formGrid}>
             <label style={label}>Название
               <input style={input} value={form.name}
-                onChange={e => setForm({ name: e.target.value })} required />
+                onChange={e => setForm({ name: e.target.value })}
+                data-text-field="true"
+                pattern={PERSON_NAME_PATTERN}
+                title="Только русские буквы, пробел и дефис"
+                required />
             </label>
             <button style={{ ...btnPrimary, marginTop: 8 }} type="submit">Сохранить</button>
           </form>

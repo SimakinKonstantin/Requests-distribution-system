@@ -6,7 +6,6 @@ type EventName string
 
 const (
 	EventAppealNeedsDistribution EventName = "APPEAL_NEEDS_DISTRIBUTION"
-	EventAppealClosed            EventName = "APPEAL_CLOSED"
 )
 
 type RabbitEvent struct {

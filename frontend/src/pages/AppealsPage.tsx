@@ -5,6 +5,10 @@ import { useCrud } from '../hooks/useCrud'
 import { usePolling } from '../hooks/usePolling'
 import Modal from '../components/Modal'
 import type { Appeal, Client, Employee, Subtheme, Theme } from '../types'
+import {
+  applyTextFieldValidity,
+  validateAppealText,
+} from '../validation'
 
 // status not set on create -- backend defaults to 'active'
 type CreateForm = { clientId: number; themeId: number; subthemeId: number | null; text: string }
@@ -36,21 +40,40 @@ export default function AppealsPage() {
   // Create
   const [createModal, setCreateModal] = useState(false)
   const [createForm, setCreateForm] = useState<CreateForm>(emptyCreate)
-  const openCreate = () => { setCreateForm(emptyCreate); setCreateModal(true) }
-  const closeCreate = () => setCreateModal(false)
-  const handleCreate = async (e: React.FormEvent) => {
+  const [createError, setCreateError] = useState<string | null>(null)
+  const openCreate = () => { setCreateForm(emptyCreate); setCreateError(null); setCreateModal(true) }
+  const closeCreate = () => { setCreateModal(false); setCreateError(null) }
+  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    await create({ ...createForm, employeeId: null, teamId: null, status: 'active' })
+    applyTextFieldValidity(e.currentTarget)
+    if (!e.currentTarget.checkValidity()) {
+      e.currentTarget.reportValidity()
+      return
+    }
+    const validationError = validateAppealText(createForm.text, 'Текст обращения')
+    if (validationError) {
+      setCreateError(validationError)
+      return
+    }
+    await create({
+      ...createForm,
+      text: createForm.text.trim(),
+      employeeId: null,
+      teamId: null,
+      status: 'active',
+    })
     closeCreate()
   }
 
   // Edit
   const [editModal, setEditModal] = useState(false)
   const [editing, setEditing] = useState<Appeal | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<EditForm>({
     clientId: 0, employeeId: null, teamId: null, themeId: 0, subthemeId: null, text: '', status: 'active',
   })
   const openEdit = (item: Appeal) => {
+    setEditError(null)
     setEditing(item)
     setEditForm({
       clientId: item.clientId, employeeId: item.employeeId, teamId: item.teamId,
@@ -59,10 +82,20 @@ export default function AppealsPage() {
     })
     setEditModal(true)
   }
-  const closeEdit = () => { setEditModal(false); setEditing(null) }
-  const handleEdit = async (e: React.FormEvent) => {
+  const closeEdit = () => { setEditModal(false); setEditing(null); setEditError(null) }
+  const handleEdit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (editing) await update(editing.id, editForm)
+    applyTextFieldValidity(e.currentTarget)
+    if (!e.currentTarget.checkValidity()) {
+      e.currentTarget.reportValidity()
+      return
+    }
+    const validationError = validateAppealText(editForm.text, 'Текст обращения')
+    if (validationError) {
+      setEditError(validationError)
+      return
+    }
+    if (editing) await update(editing.id, { ...editForm, text: editForm.text.trim() })
     closeEdit()
   }
 
@@ -189,8 +222,11 @@ export default function AppealsPage() {
             <label style={labelS}>Текст
               <textarea style={{ ...input, minHeight: 80, resize: 'vertical' }}
                 value={createForm.text}
-                onChange={e => setC('text', e.target.value)} required />
+                onChange={e => setC('text', e.target.value)}
+                data-text-field="true"
+                required />
             </label>
+            {createError && <p style={{ margin: 0, color: '#e53e3e' }}>{createError}</p>}
             <p style={hint}>Сотрудник будет назначен системой автоматически.</p>
             <button style={{ ...btnPrimary, marginTop: 4 }} type="submit">Сохранить</button>
           </form>
@@ -242,8 +278,11 @@ export default function AppealsPage() {
             <label style={labelS}>Текст
               <textarea style={{ ...input, minHeight: 80, resize: 'vertical' }}
                 value={editForm.text}
-                onChange={e => setE('text', e.target.value)} required />
+                onChange={e => setE('text', e.target.value)}
+                data-text-field="true"
+                required />
             </label>
+            {editError && <p style={{ margin: 0, color: '#e53e3e' }}>{editError}</p>}
             <button style={{ ...btnPrimary, marginTop: 8 }} type="submit">Сохранить</button>
           </form>
         </Modal>

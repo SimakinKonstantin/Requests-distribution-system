@@ -3,6 +3,10 @@ import { teamApi, themeApi, subthemeApi } from '../api'
 import { useCrud } from '../hooks/useCrud'
 import Modal from '../components/Modal'
 import type { Team, TeamThemeSubtheme, Theme, Subtheme } from '../types'
+import {
+  applyTextFieldValidity,
+  PERSON_NAME_PATTERN,
+} from '../validation'
 
 type Form = { name: string; themeSubtheme: TeamThemeSubtheme[] }
 const emptyRow = (): TeamThemeSubtheme => ({ themeId: 0, subthemeId: null, forVip: false })
@@ -26,6 +30,7 @@ export default function TeamsPage() {
   const [editLoading, setEditLoading] = useState(false)
   const [themes, setThemes] = useState<Theme[]>([])
   const [subthemes, setSubthemes] = useState<Subtheme[]>([])
+  const [formError, setFormError] = useState<string | null>(null)
 
   // load dictionaries once
   useState(() => {
@@ -35,10 +40,12 @@ export default function TeamsPage() {
 
   const openCreate = () => {
     setForm(emptyForm())
+    setFormError(null)
     setModal('create')
   }
 
   const openEdit = async (item: Team) => {
+    setFormError(null)
     setModal('edit')
     setEditLoading(true)
     try {
@@ -58,6 +65,7 @@ export default function TeamsPage() {
     setModal(null)
     setEditing(null)
     setEditLoading(false)
+    setFormError(null)
   }
 
   // ── row helpers ──────────────────────────────────────────────────────────────
@@ -73,10 +81,24 @@ export default function TeamsPage() {
       themeSubtheme: f.themeSubtheme.map((r, i) => i === idx ? { ...r, ...patch } : r),
     }))
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (modal === 'create') await create(form)
-    else if (editing) await update(editing.id, form)
+    applyTextFieldValidity(e.currentTarget)
+    if (!e.currentTarget.checkValidity()) {
+      e.currentTarget.reportValidity()
+      return
+    }
+    const normalized: Form = { ...form, name: form.name.trim() }
+    const hasInvalidTheme = normalized.themeSubtheme.some(r => !Number.isInteger(r.themeId) || r.themeId <= 0)
+    const validationError =
+      (normalized.themeSubtheme.length === 0 ? 'Добавьте хотя бы одну привязку темы/подтемы' : null)
+      ?? (hasInvalidTheme ? 'В каждой привязке должна быть выбрана тема' : null)
+    if (validationError) {
+      setFormError(validationError)
+      return
+    }
+    if (modal === 'create') await create(normalized)
+    else if (editing) await update(editing.id, normalized)
     close()
   }
 
@@ -124,6 +146,9 @@ export default function TeamsPage() {
                 style={styleInput}
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                data-text-field="true"
+                pattern={PERSON_NAME_PATTERN}
+                title="Только русские буквы, пробел и дефис"
                 required
               />
             </label>
@@ -202,6 +227,7 @@ export default function TeamsPage() {
               + Добавить привязку
             </button>
 
+            {formError && <p style={{ margin: 0, color: '#e53e3e' }}>{formError}</p>}
             <button style={{ ...styleBtnPrimary, marginTop: 8 }} type="submit" disabled={editLoading}>
               Сохранить
             </button>
