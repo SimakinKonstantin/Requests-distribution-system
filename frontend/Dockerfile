@@ -2,9 +2,12 @@
 FROM node:20-alpine AS builder
 
 WORKDIR /app
+ENV NODE_ENV=development \
+    NPM_CONFIG_PRODUCTION=false \
+    NPM_CONFIG_OMIT=
 
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
 
 COPY . .
 
@@ -12,7 +15,7 @@ COPY . .
 ARG VITE_API_URL=http://localhost:8080
 ENV VITE_API_URL=$VITE_API_URL
 
-RUN npm run build
+RUN npm ls typescript vite && npm run build
 
 # ── Stage 2: serve static ──────────────────────────────────────────────────
 FROM node:20-alpine
