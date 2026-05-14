@@ -1,28 +1,18 @@
-# ── Stage 1: build ────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 
 WORKDIR /app
-ENV NODE_ENV=development \
-    NPM_CONFIG_PRODUCTION=false \
-    NPM_CONFIG_OMIT=
+ENV NODE_ENV=development
 
 COPY package.json package-lock.json* ./
-RUN npm ci
-
+COPY node_modules ./node_modules
 COPY . .
 
 # Адрес бэкенда, доступный из браузера (порт проброшен на хост)
 ARG VITE_API_URL=http://localhost:8080
 ENV VITE_API_URL=$VITE_API_URL
 
-RUN npm ls typescript vite && npm run build
-
-# ── Stage 2: serve static ──────────────────────────────────────────────────
-FROM node:20-alpine
-
-RUN npm install -g serve
-
-COPY --from=builder /app/dist /app/dist
+RUN test -x ./node_modules/.bin/tsc && test -x ./node_modules/.bin/vite
+RUN npm run build
 
 EXPOSE 3000
-CMD ["serve", "-s", "/app/dist", "--listen", "tcp://0.0.0.0:3000"]
+CMD ["./node_modules/.bin/vite", "preview", "--host", "0.0.0.0", "--port", "3000"]

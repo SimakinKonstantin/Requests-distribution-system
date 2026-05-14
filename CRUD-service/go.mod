@@ -4,6 +4,7 @@ go 1.23.0
 
 require (
 	github.com/hibiken/asynq v0.25.1
+	github.com/pressly/goose/v3 v3.26.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lib/pq v1.10.9

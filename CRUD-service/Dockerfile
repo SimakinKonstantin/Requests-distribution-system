@@ -1,16 +1,14 @@
 FROM golang:1.26.1
 
 WORKDIR /app
-
-COPY go.mod go.sum ./
-RUN go mod download
-
-RUN go install github.com/pressly/goose/v3/cmd/goose@latest
+ENV GOFLAGS=-mod=vendor
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/server/
+RUN test -f vendor/modules.txt
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o main ./cmd/server/
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o goose github.com/pressly/goose/v3/cmd/goose
 
 EXPOSE 8080
 
-CMD goose -dir ./migrations postgres "$DATABASE_URL" up && ./main
+CMD ./goose -dir ./migrations postgres "$DATABASE_URL" up && ./main
