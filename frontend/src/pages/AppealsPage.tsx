@@ -119,9 +119,6 @@ export default function AppealsPage() {
       <div style={titleRow}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <h2 style={{ margin: 0 }}>Обращения</h2>
-          <span style={pollBadge} title="Short polling active">
-            Обновление: {POLL_MS / 1000} с
-          </span>
         </div>
         <button style={btnPrimary} onClick={openCreate}>+ Добавить</button>
       </div>
@@ -324,10 +321,6 @@ const input: React.CSSProperties = {
   padding: '8px 12px', border: '1px solid #ddd', borderRadius: 6, fontSize: 14, outline: 'none',
 }
 const hint: React.CSSProperties = { margin: 0, fontSize: 12, color: '#888', fontStyle: 'italic' }
-const pollBadge: React.CSSProperties = {
-  fontSize: 12, color: '#7c8cf8', background: '#eef0ff',
-  borderRadius: 4, padding: '2px 8px', fontWeight: 500,
-}
 const activeBadge: React.CSSProperties = {
   background: '#e6ffed', color: '#276749',
   borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 600,

@@ -21,7 +21,7 @@ export default function SlotsPage() {
 
   return (
     <div style={page}>
-      <h2 style={{ margin: '0 0 20px' }}>Слоты</h2>
+      <h2 style={{ margin: '0 0 20px' }}>Ячейки</h2>
 
       {loading && <p>Загрузка…</p>}
       {error && <p style={{ color: 'red' }}>{error}</p>}

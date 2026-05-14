@@ -15,7 +15,7 @@ const navItems = [
   { to: '/themes',    label: 'Темы' },
   { to: '/subthemes', label: 'Подтемы' },
   { to: '/appeals',   label: 'Обращения' },
-  { to: '/slots',     label: 'Слоты' },
+  { to: '/slots',     label: 'Ячейки' },
   { to: '/teams',     label: 'Команды' },
   { to: '/workflows', label: 'Автоматизация' },
 ]

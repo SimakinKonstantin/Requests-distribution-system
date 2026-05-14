@@ -87,7 +87,6 @@ export default function AppealDetailPage() {
           <span style={isClosed ? closedBadge : activeBadge}>
             {isClosed ? 'закрыто' : 'активно'}
           </span>
-          <span style={pollBadge}>Обновление: {POLL_MS / 1000} с</span>
         </div>
         {!isClosed && (
           <button style={closeBtn} onClick={handleClose} disabled={closing}>
@@ -181,10 +180,6 @@ const assignedBadge: React.CSSProperties = {
 const pendingBadge: React.CSSProperties = {
   background: '#fff8e1', color: '#92600a', borderRadius: 4,
   padding: '2px 10px', fontSize: 14, fontWeight: 500,
-}
-const pollBadge: React.CSSProperties = {
-  fontSize: 12, color: '#7c8cf8', background: '#eef0ff',
-  borderRadius: 4, padding: '2px 8px', fontWeight: 500,
 }
 const pollHint: React.CSSProperties = {
   marginTop: 16, fontSize: 12, color: '#aaa', fontStyle: 'italic',
