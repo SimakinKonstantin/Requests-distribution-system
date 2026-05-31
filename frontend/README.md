@@ -58,23 +58,23 @@ ARG VITE_API_URL=http://localhost:8080
 
 ```
 src/
-├── main.tsx              # точка входа: React root + BrowserRouter
-├── App.tsx               # корневой компонент: сайдбар + маршруты
-├── types.ts              # TypeScript-интерфейсы доменных сущностей
-├── api.ts                # HTTP-клиент: один объект на ресурс
-├── hooks/
-│   ├── useCrud.ts        # универсальный хук для CRUD-операций
-│   └── usePolling.ts     # хук периодического опроса (short polling)
-├── components/
-│   └── Modal.tsx         # универсальная модальная форма
-└── pages/
-    ├── EmployeesPage.tsx
-    ├── ClientsPage.tsx
-    ├── ThemesPage.tsx
-    ├── SubthemesPage.tsx
-    ├── SlotsPage.tsx
-    ├── AppealsPage.tsx        # список обращений с фильтром
-    └── AppealDetailPage.tsx   # детальная страница обращения
+├ main.tsx              # точка входа: React root + BrowserRouter
+├ App.tsx               # корневой компонент: сайдбар + маршруты
+├ types.ts              # TypeScript-интерфейсы доменных сущностей
+├ api.ts                # HTTP-клиент: один объект на ресурс
+├ hooks/
+│   ├ useCrud.ts        # универсальный хук для CRUD-операций
+│   └ usePolling.ts     # хук периодического опроса (short polling)
+├ components/
+│   └ Modal.tsx         # универсальная модальная форма
+└ pages/
+    ├ EmployeesPage.tsx
+    ├ ClientsPage.tsx
+    ├ ThemesPage.tsx
+    ├ SubthemesPage.tsx
+    ├ SlotsPage.tsx
+    ├ AppealsPage.tsx        # список обращений с фильтром
+    └ AppealDetailPage.tsx   # детальная страница обращения
 ```
 
 ---
@@ -239,13 +239,13 @@ usePolling(fn, intervalMs?, enabled?)
 
 ```
 Браузер
-  └─ fetch("/appeals", { method: "GET" })
+  └ fetch("/appeals", { method: "GET" })
        │
        │  (в Docker: браузер обращается к http://localhost:8080 напрямую)
        │  (в dev: Vite proxy перенаправляет /appeals → localhost:8080)
        │
-       └─► Go HTTP-сервер (порт 8080)
-             └─► PostgreSQL
+       └► Go HTTP-сервер (порт 8080)
+             └► PostgreSQL
 ```
 
 Бэкенд добавляет заголовки CORS (`Access-Control-Allow-Origin: *`), поэтому

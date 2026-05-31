@@ -21,7 +21,7 @@ import {
   validateAppealText,
 } from '../validation'
 
-// ─── Словари ──────────────────────────────────────────────────────────────────
+//  Словари 
 
 const ATTRIBUTE_LABELS: Record<WorkflowPredicateAttribute, string> = {
   clientEmail: 'Email клиента',
@@ -54,7 +54,7 @@ const OPERATOR_LABELS: Record<WorkflowLogicOperator, string> = {
   or:  'ИЛИ',
 }
 
-// ─── Типы черновиков ──────────────────────────────────────────────────────────
+//  Типы черновиков 
 
 type StartComparison = Extract<WorkflowComparison, 'Eq' | 'All'>
 
@@ -64,20 +64,19 @@ interface ActionNodeDraft {
   teamId: string
 }
 
-/** Черновик предиката внутри ConditionNode */
 interface ConditionPredicateDraft {
   attribute: WorkflowPredicateAttribute
   comparison: WorkflowComparison
-  // для clientEmail / themeId - список выбранных значений
+  // для email клиента / темы — список выбранных значений
   selectedValues: string[]
-  // для text - произвольный текст
+  // для текста — произвольное значение
   valuesText: string
-  // для messageCreatedAt - два времени (HH:MM, Moscow)
+  // для времени создания — два значения (ЧЧ:ММ, Москва)
   intervalStart: string
   intervalEnd:   string
 }
 
-/** ConditionNode хранит плоский список предикатов + оператор (соответствует backend ConditionGroup) */
+// Узел условия: плоский список предикатов и логический оператор
 interface ConditionNodeDraft {
   kind: 'ConditionNode'
   id: string
@@ -87,7 +86,7 @@ interface ConditionNodeDraft {
 
 type ExtraNodeDraft = ActionNodeDraft | ConditionNodeDraft
 
-// ─── Вспомогательные функции ──────────────────────────────────────────────────
+//  Вспомогательные функции 
 
 const predicateAttributes: WorkflowPredicateAttribute[] = [
   'clientEmail',
@@ -112,8 +111,8 @@ function emptyConditionPredicate(): ConditionPredicateDraft {
 }
 
 /**
- * Конвертирует время пользователя (HH:MM, Europe/Moscow = UTC+3)
- * в RFC3339 UTC строку на сегодняшнюю дату по московскому времени.
+ * Конвертирует время пользователя (ЧЧ:ММ, UTC+3)
+ * в строку UTC ISO на сегодняшнюю дату по московскому времени.
  */
 function moscowTimeToUtcIso(timeHHMM: string): string {
   const [hhStr, mmStr] = timeHHMM.split(':')
@@ -139,7 +138,7 @@ function moscowTimeToUtcIso(timeHHMM: string): string {
 }
 
 /**
- * Обратное преобразование: UTC ISO → HH:MM в московском времени.
+ * Обратное преобразование: UTC ISO → ЧЧ:ММ в московском времени.
  * Используется при заполнении формы редактирования из сохранённой автоматизации.
  */
 function utcIsoToMoscowHHMM(iso: string): string {
@@ -153,8 +152,8 @@ function utcIsoToMoscowHHMM(iso: string): string {
 }
 
 /**
- * Десериализует сохранённый Workflow обратно в черновик формы.
- * Возвращает null если структура не распознана.
+ * Десериализует сохранённую автоматизацию обратно в черновик формы.
+ * Возвращает null, если структура не распознана.
  */
 function workflowToDraft(wf: Workflow): {
   name: string
@@ -212,7 +211,6 @@ function workflowToDraft(wf: Workflow): {
             intervalEnd:    '',
           }
         }
-        // text
         return {
           attribute:      attr,
           comparison:     cmp,
@@ -240,7 +238,7 @@ function workflowToDraft(wf: Workflow): {
   }
 }
 
-// ─── Вспомогательный компонент: редактор значений предиката ──────────────────
+//  Вспомогательный компонент: редактор значений предиката 
 
 interface PredicateValueEditorProps {
   predicate: ConditionPredicateDraft
@@ -351,7 +349,7 @@ function PredicateValueEditor({ predicate, clientEmails, themes, onChange }: Pre
   )
 }
 
-// ─── Компонент формы автоматизации (создание и редактирование) ────────────────
+//  Компонент формы автоматизации (создание и редактирование) 
 
 interface WorkflowFormProps {
   initialName: string
@@ -386,7 +384,7 @@ function WorkflowForm({
   const [formError, setFormError]                         = useState<string | null>(null)
   const [submitting, setSubmitting]                       = useState(false)
 
-  // ── Конвертация и валидация ────────────────────────────────────────────────
+  //  Конвертация и валидация 
 
   const resolveValues = (p: ConditionPredicateDraft, label: string): string[] => {
     if (p.attribute === 'clientEmail' || p.attribute === 'themeId') {
@@ -464,7 +462,7 @@ function WorkflowForm({
     return { name: workflowName, status, nodes, edges }
   }
 
-  // ── Управление узлами ──────────────────────────────────────────────────────
+  //  Управление узлами 
 
   const addExtraNode = (kind: ExtraNodeDraft['kind']) => {
     if (kind === 'ActionNode') {
@@ -506,7 +504,7 @@ function WorkflowForm({
       prev.includes(email) ? prev.filter(x => x !== email) : [...prev, email],
     )
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  //  Отправка 
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -526,7 +524,7 @@ function WorkflowForm({
     }
   }
 
-  // ── Рендер ─────────────────────────────────────────────────────────────────
+  //  Рендер 
 
   return (
     <form onSubmit={handleSubmit} style={formStyle}>
@@ -551,7 +549,7 @@ function WorkflowForm({
         </select>
       </label>
 
-      {/* ── Блок клиентов ── */}
+      {/*  Блок клиентов  */}
       <div style={sectionCard}>
         <h4 style={sectionTitle}>Клиенты</h4>
         <p style={hintStyle}>Укажите клиентов, для которых будет срабатывать автоматизация.</p>
@@ -589,7 +587,7 @@ function WorkflowForm({
         )}
       </div>
 
-      {/* ── Шаги ── */}
+      {/*  Шаги  */}
       <div style={sectionCard}>
         <h4 style={sectionTitle}>Добавить шаг</h4>
         <div style={actionsRow}>
@@ -614,7 +612,7 @@ function WorkflowForm({
               </button>
             </div>
 
-            {/* ActionNode */}
+            {/* Узел действия */}
             {node.kind === 'ActionNode' && (
               <div style={labelStyle}>
                 Команда, на которую назначить обращение
@@ -643,7 +641,7 @@ function WorkflowForm({
               </div>
             )}
 
-            {/* ConditionNode */}
+            {/* Узел условия */}
             {node.kind === 'ConditionNode' && (
               <div style={conditionCard}>
                 <label style={labelStyle}>
@@ -756,7 +754,7 @@ function WorkflowForm({
   )
 }
 
-// ─── Главный компонент ────────────────────────────────────────────────────────
+//  Главный компонент 
 
 export default function WorkflowsPage() {
   const [items, setItems]     = useState<WorkflowGetAll[]>([])
@@ -773,7 +771,7 @@ export default function WorkflowsPage() {
   const [editWorkflow, setEditWorkflow]       = useState<Workflow | null>(null)
   const [editLoading, setEditLoading]         = useState(false)
 
-  // ── Загрузка ──────────────────────────────────────────────────────────────
+  //  Загрузка 
 
   const loadList = async () => {
     setLoading(true); setError(null)
@@ -790,7 +788,7 @@ export default function WorkflowsPage() {
     teamApi.getAll().then(d => setTeams(d ?? [])).catch(() => setTeams([]))
   }, [])
 
-  // ── Открытие редактора ────────────────────────────────────────────────────
+  //  Открытие редактора 
 
   const openEdit = async (id: number) => {
     setEditLoading(true)
@@ -804,7 +802,7 @@ export default function WorkflowsPage() {
     }
   }
 
-  // ── Удаление ──────────────────────────────────────────────────────────────
+  //  Удаление 
 
   const removeWorkflow = async (id: number) => {
     if (!window.confirm('Удалить автоматизацию?')) return
@@ -812,9 +810,9 @@ export default function WorkflowsPage() {
     catch (e) { setError(String(e)) }
   }
 
-  // ── Рендер ───────────────────────────────────────────────────────────────
+  //  Рендер 
 
-  // Черновик для редактирования (вычисляется из editWorkflow)
+  // Черновик для редактирования (вычисляется из выбранной автоматизации)
   const editDraft = editWorkflow ? workflowToDraft(editWorkflow) : null
 
   return (
@@ -853,7 +851,7 @@ export default function WorkflowsPage() {
         </tbody>
       </table>
 
-      {/* ── Модалка создания ── */}
+      {/*  Модалка создания  */}
       {createOpen && (
         <Modal title="Создание автоматизации" onClose={() => setCreateOpen(false)}>
           <WorkflowForm
@@ -875,7 +873,7 @@ export default function WorkflowsPage() {
         </Modal>
       )}
 
-      {/* ── Модалка редактирования ── */}
+      {/*  Модалка редактирования  */}
       {editWorkflow && editDraft && (
         <Modal
           title={`ID автоматизации: ${editWorkflow.id}`}
@@ -904,14 +902,14 @@ export default function WorkflowsPage() {
   )
 }
 
-// ─── Утилиты ──────────────────────────────────────────────────────────────────
+//  Утилиты 
 
 function uid() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
   return `node-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-// ─── Стили ────────────────────────────────────────────────────────────────────
+//  Стили 
 
 const pageStyle: React.CSSProperties = { padding: '0 4px' }
 const titleRow: React.CSSProperties = {

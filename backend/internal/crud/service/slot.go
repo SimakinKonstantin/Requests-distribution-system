@@ -1,0 +1,213 @@
+package service
+
+import (
+	"crud-service/internal/crud/model"
+	"crud-service/internal/crud/repository"
+	"fmt"
+	"log/slog"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
+)
+
+type SlotService interface {
+	GetAll() ([]model.Slot, error)
+	GetByID(id int) (model.Slot, error)
+	Create(s model.Slot) (model.Slot, error)
+	UpdateCount(id int, count int) error
+	Delete(id int) error
+	FetchFreeSlotsByEmployees(employeeIDs []int) (map[int][]model.Slot, error)
+}
+
+type slotService struct {
+	db   *sqlx.DB
+	repo repository.SlotRepository
+}
+
+func NewSlotService(db *sqlx.DB, repo repository.SlotRepository) SlotService {
+	return &slotService{db: db, repo: repo}
+}
+
+func (s *slotService) GetAll() ([]model.Slot, error) {
+	return s.repo.GetAll()
+}
+
+func (s *slotService) GetByID(id int) (model.Slot, error) {
+	return s.repo.GetByID(id)
+}
+
+func (s *slotService) Create(slot model.Slot) (model.Slot, error) {
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return model.Slot{}, fmt.Errorf("slotService.Create start transaction: %w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	createdSlot, err := s.repo.Create(tx, slot)
+	if err != nil {
+		return model.Slot{}, fmt.Errorf("slotService.Create create slot: %w", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return model.Slot{}, fmt.Errorf("slotService.UpdateCount commit transaction: %w", err)
+	}
+	return createdSlot, nil
+}
+
+func (s *slotService) UpdateCount(employeeID int, newCount int) error {
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("slotService.Update start transaction: %w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+			slog.Error(fmt.Sprintf("Error rolling back transaction: %s", err))
+			return
+		}
+
+		if err = tx.Commit(); err != nil {
+			slog.Error(fmt.Sprintf("Error committing transaction: %s", err.Error()))
+		}
+	}()
+
+	currentCount, err := s.repo.GetSlotsCount(employeeID)
+	if err != nil {
+		return fmt.Errorf("slotService.UpdateCount get slots count: %w", err)
+	}
+
+	slog.Info(fmt.Sprintf("currentCount: %d, newCount: %d", currentCount, newCount))
+
+	if currentCount == newCount {
+		return nil
+	}
+
+	if currentCount < newCount {
+		slog.Info("currentCount < newCount")
+		needToRemoveSlots, err := s.repo.GetNeedToRemoveSlots(employeeID)
+		if err != nil {
+			return fmt.Errorf("slotService.UpdateCount get need to remove slots: %w", err)
+		}
+
+		slog.Info(fmt.Sprintf("needToRemoveSlots: %d", len(needToRemoveSlots)))
+		slog.Info(fmt.Sprintf("needToRemoveSlots: %v", needToRemoveSlots))
+
+		for _, slot := range needToRemoveSlots {
+			err := s.repo.SetNeedToRemoveValue(tx, slot, false)
+			if err != nil {
+				return fmt.Errorf("slotService.UpdateCount set need to remove value: %w", err)
+			}
+
+			// Если теперь слотов хватает, то выходим не добавляя новых слотов.
+			currentCount++
+			if currentCount == newCount {
+				return nil
+			}
+		}
+
+		needToAddSlots := newCount - currentCount
+		for i := 0; i < needToAddSlots; i++ {
+			_, err := s.repo.Create(tx, model.Slot{EmployeeID: employeeID, NeedToRemove: false, AppealID: nil})
+			if err != nil {
+				return fmt.Errorf("slotService.UpdateCount create slot: %w", err)
+			}
+		}
+
+		return nil
+	}
+
+	if currentCount > newCount {
+		slog.Info("currentCount > newCount")
+		freeSlots, err := s.repo.GetFreeSlots(employeeID)
+		if err != nil {
+			return fmt.Errorf("slotService.UpdateCount get free slots: %w", err)
+		}
+
+		slog.Info(fmt.Sprintf("freeSlots: %d", len(freeSlots)))
+		slog.Info(fmt.Sprintf("freeSlots: %v", freeSlots))
+
+		// Сначала удаляем все свободные слоты.
+		for _, slot := range freeSlots {
+			err := s.repo.Delete(tx, slot.ID)
+			if err != nil {
+				return fmt.Errorf("slotService.UpdateCount delete slot: %w", err)
+			}
+			currentCount--
+			if currentCount == newCount {
+				return nil
+			}
+		}
+
+		// Если после удаления свободных слотов
+		needToRemoveSlots := currentCount - newCount
+		for i := 0; i < needToRemoveSlots; i++ {
+			err := s.repo.SetNeedToRemoveValue(tx, freeSlots[i], true)
+			if err != nil {
+				return fmt.Errorf("slotService.UpdateCount set need to remove value: %w", err)
+			}
+		}
+		return nil
+	}
+
+	return nil
+}
+
+func (s *slotService) Delete(id int) error {
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return fmt.Errorf("slotService.Delete start transaction: %w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	err = s.repo.Delete(tx, id)
+	if err != nil {
+		return fmt.Errorf("slotService.Delete delete slot: %w", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("slotService.Close commit transaction: %w", err)
+	}
+	return nil
+}
+
+func (s *slotService) FetchFreeSlotsByEmployees(employeeIDs []int) (map[int][]model.Slot, error) {
+	if len(employeeIDs) == 0 {
+		return map[int][]model.Slot{}, nil
+	}
+	const q = `
+SELECT id, employee_id, appeal_id, updated_at
+FROM slots
+WHERE employee_id = ANY($1) AND appeal_id IS NULL AND need_to_remove = FALSE
+ORDER BY employee_id, updated_at ASC
+`
+	ids := make([]int64, len(employeeIDs))
+	for i, id := range employeeIDs {
+		ids[i] = int64(id)
+	}
+	rows, err := s.db.Query(q, pq.Array(ids))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[int][]model.Slot, len(employeeIDs))
+	for rows.Next() {
+		var s model.Slot
+		if err := rows.Scan(&s.ID, &s.EmployeeID, &s.AppealID, &s.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out[s.EmployeeID] = append(out[s.EmployeeID], s)
+	}
+	return out, rows.Err()
+}

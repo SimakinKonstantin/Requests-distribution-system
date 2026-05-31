@@ -10,7 +10,6 @@ import {
   validateAppealText,
 } from '../validation'
 
-// status not set on create -- backend defaults to 'active'
 type CreateForm = { clientId: number; themeId: number; subthemeId: number | null; text: string }
 const emptyCreate: CreateForm = { clientId: 0, themeId: 0, subthemeId: null, text: '' }
 type EditForm = Omit<Appeal, 'id'>
@@ -22,7 +21,7 @@ export default function AppealsPage() {
   const { items, loading, error, create, update, remove, reload } =
     useCrud<Appeal, EditForm>(appealApi)
 
-  // Short polling -- refresh list every 3 s
+  // Периодическое обновление списка каждые 3 с
   usePolling(reload, POLL_MS)
 
   const [clients, setClients] = useState<Client[]>([])
@@ -37,7 +36,7 @@ export default function AppealsPage() {
     subthemeApi.getAll().then(setSubthemes).catch(() => {})
   }, [])
 
-  // Create
+  // Создание
   const [createModal, setCreateModal] = useState(false)
   const [createForm, setCreateForm] = useState<CreateForm>(emptyCreate)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -65,7 +64,7 @@ export default function AppealsPage() {
     closeCreate()
   }
 
-  // Edit
+  // Редактирование
   const [editModal, setEditModal] = useState(false)
   const [editing, setEditing] = useState<Appeal | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
@@ -99,7 +98,7 @@ export default function AppealsPage() {
     closeEdit()
   }
 
-  // Filter by client
+  // Фильтр по клиенту
   const [filterClientId, setFilterClientId] = useState<number>(0)
 
   const setC = <K extends keyof CreateForm>(k: K, v: CreateForm[K]) =>
@@ -123,7 +122,7 @@ export default function AppealsPage() {
         <button style={btnPrimary} onClick={openCreate}>+ Добавить</button>
       </div>
 
-      {/* Filter bar */}
+      {/* Панель фильтра */}
       <div style={filterBar}>
         <label style={filterLabel}>
           Фильтр по клиенту:

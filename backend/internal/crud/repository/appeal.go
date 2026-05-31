@@ -1,0 +1,212 @@
+package repository
+
+import (
+	"crud-service/internal/crud/model"
+	"database/sql"
+	"fmt"
+	"time"
+
+	"github.com/jmoiron/sqlx"
+)
+
+type appealDB struct {
+	ID         int           `db:"id"`
+	ClientID   int           `db:"client_id"`
+	EmployeeID sql.NullInt64 `db:"employee_id"`
+	ThemeID    int           `db:"theme_id"`
+	SubthemeID sql.NullInt64 `db:"subtheme_id"`
+	Text       string        `db:"text"`
+	Status     string        `db:"status"`
+	TeamID     sql.NullInt64 `db:"team_id"`
+	CreatedAt  time.Time     `db:"created_at"`
+}
+
+func toAppealDB(a model.Appeal) appealDB {
+	empID := sql.NullInt64{}
+	if a.EmployeeID != nil {
+		empID = sql.NullInt64{Int64: int64(*a.EmployeeID), Valid: true}
+	}
+	subthemeID := sql.NullInt64{}
+	if a.SubthemeID != nil {
+		subthemeID = sql.NullInt64{Int64: int64(*a.SubthemeID), Valid: true}
+	}
+	teamID := sql.NullInt64{}
+	if a.TeamID != nil {
+		teamID = sql.NullInt64{Int64: int64(*a.TeamID), Valid: true}
+	}
+	status := a.Status
+	if status == "" {
+		status = "active"
+	}
+	return appealDB{
+		ID:         a.ID,
+		ClientID:   a.ClientID,
+		EmployeeID: empID,
+		ThemeID:    a.ThemeID,
+		SubthemeID: subthemeID,
+		Text:       a.Text,
+		Status:     status,
+		TeamID:     teamID,
+		CreatedAt:  a.CreatedAt,
+	}
+}
+
+func (a appealDB) toDomain() model.Appeal {
+	var empID *int
+	if a.EmployeeID.Valid {
+		v := int(a.EmployeeID.Int64)
+		empID = &v
+	}
+	var subthemeID *int
+	if a.SubthemeID.Valid {
+		v := int(a.SubthemeID.Int64)
+		subthemeID = &v
+	}
+	var teamID *int
+	if a.TeamID.Valid {
+		v := int(a.TeamID.Int64)
+		teamID = &v
+	}
+	return model.Appeal{
+		ID:         a.ID,
+		ClientID:   a.ClientID,
+		EmployeeID: empID,
+		ThemeID:    a.ThemeID,
+		SubthemeID: subthemeID,
+		Text:       a.Text,
+		Status:     a.Status,
+		TeamID:     teamID,
+		CreatedAt:  a.CreatedAt,
+	}
+}
+
+type AppealRepository interface {
+	GetAll() ([]model.Appeal, error)
+	GetByID(id int) (model.Appeal, error)
+	Create(tx *sqlx.Tx, a model.Appeal) (model.Appeal, error)
+	Update(tx *sqlx.Tx, id int, a model.Appeal) (model.Appeal, error)
+	Delete(tx *sqlx.Tx, id int) error
+	Close(tx *sqlx.Tx, id int) (model.Appeal, error)
+	FetchPendingAppeals(limit int) ([]model.Appeal, error)
+}
+
+type appealRepo struct {
+	db *sqlx.DB
+}
+
+func NewAppealRepository(db *sqlx.DB) AppealRepository {
+	return &appealRepo{db: db}
+}
+
+func (r *appealRepo) GetAll() ([]model.Appeal, error) {
+	var rows []appealDB
+	if err := r.db.Select(&rows,
+		`SELECT id, client_id, employee_id, theme_id, subtheme_id, text, status, team_id, created_at
+		 FROM appeals ORDER BY id`,
+	); err != nil {
+		return nil, fmt.Errorf("appealRepo.GetAll: %w", err)
+	}
+
+	result := make([]model.Appeal, len(rows))
+	for i, row := range rows {
+		result[i] = row.toDomain()
+	}
+	return result, nil
+}
+
+func (r *appealRepo) GetByID(id int) (model.Appeal, error) {
+	var row appealDB
+	err := r.db.Get(&row,
+		`SELECT id, client_id, employee_id, theme_id, subtheme_id, text, status, team_id, created_at
+		 FROM appeals WHERE id = $1`, id,
+	)
+	if err != nil {
+		return model.Appeal{}, fmt.Errorf("appealRepo.GetByID: %w", err)
+	}
+	return row.toDomain(), nil
+}
+
+func (r *appealRepo) Create(tx *sqlx.Tx, a model.Appeal) (model.Appeal, error) {
+	row := toAppealDB(a)
+
+	err := tx.QueryRowx(
+		`INSERT INTO appeals (client_id, employee_id, theme_id, subtheme_id, text, status, team_id, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+		row.ClientID, row.EmployeeID, row.ThemeID, row.SubthemeID, row.Text, row.Status, row.TeamID, row.CreatedAt,
+	).Scan(&row.ID)
+	if err != nil {
+		return model.Appeal{}, fmt.Errorf("appealRepo.Create: %w", err)
+	}
+	return row.toDomain(), nil
+}
+
+func (r *appealRepo) Update(tx *sqlx.Tx, id int, a model.Appeal) (model.Appeal, error) {
+	row := toAppealDB(a)
+	row.ID = id
+	res, err := tx.Exec(
+		`UPDATE appeals
+		 SET client_id=$1, employee_id=$2, theme_id=$3, subtheme_id=$4, text=$5, status=$6, team_id=$7, created_at=$8
+		 WHERE id=$9`,
+		row.ClientID, row.EmployeeID, row.ThemeID, row.SubthemeID, row.Text, row.Status, row.TeamID, row.CreatedAt, row.ID,
+	)
+	if err != nil {
+		return model.Appeal{}, fmt.Errorf("appealRepo.Update: %w", err)
+	}
+	if err = expectOneRow(res); err != nil {
+		return model.Appeal{}, err
+	}
+	return row.toDomain(), nil
+}
+
+func (r *appealRepo) Delete(tx *sqlx.Tx, id int) error {
+	res, err := tx.Exec(`DELETE FROM appeals WHERE id=$1`, id)
+	if err != nil {
+		return fmt.Errorf("appealRepo.Delete: %w", err)
+	}
+	return expectOneRow(res)
+}
+
+func (r *appealRepo) Close(tx *sqlx.Tx, id int) (model.Appeal, error) {
+	var row appealDB
+	err := tx.QueryRowx(
+		`UPDATE appeals SET status='closed' WHERE id=$1
+		 RETURNING id, client_id, employee_id, theme_id, subtheme_id, text, status, team_id, created_at`,
+		id,
+	).StructScan(&row)
+	if err != nil {
+		return model.Appeal{}, fmt.Errorf("appealRepo.Close: %w", err)
+	}
+	return row.toDomain(), nil
+}
+
+func (r *appealRepo) FetchPendingAppeals(limit int) ([]model.Appeal, error) {
+	const q = `
+SELECT a.id, a.team_id, a.created_at, a.employee_id, a.status
+FROM pending_appeals p
+JOIN appeals a ON a.id = p.appeal_id
+WHERE a.employee_id IS NULL AND a.status <> 'closed'
+ORDER BY p.priority DESC, p.updated_at ASC
+LIMIT $1
+`
+	rows, err := r.db.Query(q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []model.Appeal
+	for rows.Next() {
+		var a model.Appeal
+		if err := rows.Scan(
+			&a.ID, &a.TeamID, &a.CreatedAt, &a.EmployeeID, &a.Status,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("appealRepo.FetchPendingAppeals: %w", err)
+	}
+
+	return out, nil
+}

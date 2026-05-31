@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
 import { employeeApi, slotApi } from '../api'
 import { useCrud } from '../hooks/useCrud'
+import { usePolling } from '../hooks/usePolling'
 import type { Employee, Slot } from '../types'
 
+const POLL_MS = 3000
+
 export default function SlotsPage() {
-  const { items, loading, error } = useCrud<Slot, Omit<Slot, 'id'>>(slotApi)
+  const { items, loading, error, reload } = useCrud<Slot, Omit<Slot, 'id'>>(slotApi)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [filterEmployeeId, setFilterEmployeeId] = useState<number>(0)
+
+  usePolling(reload, POLL_MS)
 
   useEffect(() => {
     employeeApi.getAll().then(setEmployees).catch(() => setEmployees([]))

@@ -47,7 +47,7 @@ export interface Appeal {
   status: 'active' | 'closed'
 }
 
-// Teams (для вкладки Teams)
+// Команды (для вкладки «Команды»)
 export interface TeamThemeSubtheme {
   themeId: number
   subthemeId: number | null

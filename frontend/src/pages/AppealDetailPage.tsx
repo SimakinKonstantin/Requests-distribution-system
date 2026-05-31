@@ -46,7 +46,7 @@ export default function AppealDetailPage() {
 
   useEffect(() => { void fetchAppeal() }, [fetchAppeal])
 
-  // Short polling - активен всегда, пока страница открыта
+  // Поллинг активен, пока страница открыта
   usePolling(fetchAppeal, POLL_MS)
 
   // Закрытие обращения
@@ -62,7 +62,6 @@ export default function AppealDetailPage() {
     }
   }
 
-  // Helpers
   const clientEmail   = (id: number) => clients.find(c => c.id === id)?.email   ?? `#${id}`
   const employeeEmail = (id: number) => employees.find(e => e.id === id)?.email ?? `#${id}`
   const themeName     = (id: number) => themes.find(t => t.id === id)?.name     ?? `#${id}`
@@ -138,7 +137,6 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
-// ── styles ───────────────────────────────────────────────────────────────────
 const page: React.CSSProperties = { padding: '0 4px', maxWidth: 720 }
 const header: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap',

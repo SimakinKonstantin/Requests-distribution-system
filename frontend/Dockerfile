@@ -1,4 +1,4 @@
-# ── Stage 1: build ────────────────────────────────────────────────────────
+#  Этап 1: сборка 
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -17,7 +17,7 @@ ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm ls typescript vite && npm run build
 
-# ── Stage 2: serve static ──────────────────────────────────────────────────
+#  Этап 2: раздача статики 
 FROM node:20-alpine
 
 RUN npm install -g serve

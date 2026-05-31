@@ -32,7 +32,7 @@ export default function TeamsPage() {
   const [subthemes, setSubthemes] = useState<Subtheme[]>([])
   const [formError, setFormError] = useState<string | null>(null)
 
-  // load dictionaries once
+  // Однократная загрузка справочников
   useState(() => {
     themeApi.getAll().then(setThemes).catch(() => setThemes([]))
     subthemeApi.getAll().then(setSubthemes).catch(() => setSubthemes([]))
@@ -53,7 +53,7 @@ export default function TeamsPage() {
       setEditing(full)
       setForm({ name: full.name, themeSubtheme: normalizeRows(full) })
     } catch {
-      // fallback to list item data if request fails
+      // При ошибке запроса используем данные из строки списка
       setEditing(item)
       setForm({ name: item.name, themeSubtheme: normalizeRows(item) })
     } finally {
@@ -68,7 +68,6 @@ export default function TeamsPage() {
     setFormError(null)
   }
 
-  // ── row helpers ──────────────────────────────────────────────────────────────
   const addRow = () =>
     setForm(f => ({ ...f, themeSubtheme: [...f.themeSubtheme, emptyRow()] }))
 
@@ -153,7 +152,7 @@ export default function TeamsPage() {
               />
             </label>
 
-            {/* ── Bindings table ── */}
+            {/* Таблица привязок */}
             <div style={{ fontWeight: 600, color: '#444', marginTop: 4 }}>Привязки тем / подтем</div>
 
             {editLoading && modal === 'edit' && <p>Загрузка…</p>}
@@ -162,7 +161,7 @@ export default function TeamsPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {form.themeSubtheme.map((row, idx) => (
                   <div key={idx} style={styleRowCard}>
-                    {/* Theme */}
+                    {/* Тема */}
                     <label style={styleInlineLabel}>
                       Тема
                       <select
@@ -178,7 +177,7 @@ export default function TeamsPage() {
                       </select>
                     </label>
 
-                    {/* Subtheme */}
+                    {/* Подтема */}
                     <label style={styleInlineLabel}>
                       Подтема
                       <select
@@ -206,7 +205,7 @@ export default function TeamsPage() {
                       VIP
                     </label>
 
-                    {/* Remove row */}
+                    {/* Удалить строку */}
                     <button
                       type="button"
                       style={{ ...styleBtnSm, ...styleBtnDanger, marginLeft: 'auto' }}

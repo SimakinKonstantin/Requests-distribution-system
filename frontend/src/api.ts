@@ -22,7 +22,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-// ── Employees ──────────────────────────────────────────────────────────────
 export const employeeApi = {
   getAll: () => request<Employee[]>('/employees'),
   getById: (id: number) => request<Employee>(`/employees/${id}`),
@@ -33,7 +32,6 @@ export const employeeApi = {
   delete: (id: number) => request<void>(`/employees/${id}`, { method: 'DELETE' }),
 }
 
-// ── Clients ────────────────────────────────────────────────────────────────
 export const clientApi = {
   getAll: () => request<Client[]>('/clients'),
   getEmails: () => request<string[]>('/clients/emails'),
@@ -45,7 +43,6 @@ export const clientApi = {
   delete: (id: number) => request<void>(`/clients/${id}`, { method: 'DELETE' }),
 }
 
-// ── Themes ─────────────────────────────────────────────────────────────────
 export const themeApi = {
   getAll: () => request<Theme[]>('/themes'),
   getById: (id: number) => request<Theme>(`/themes/${id}`),
@@ -56,7 +53,6 @@ export const themeApi = {
   delete: (id: number) => request<void>(`/themes/${id}`, { method: 'DELETE' }),
 }
 
-// ── Slots ──────────────────────────────────────────────────────────────────
 export const slotApi = {
   getAll: () => request<Slot[]>('/slots'),
   getById: (id: number) => request<Slot>(`/slots/${id}`),
@@ -67,7 +63,6 @@ export const slotApi = {
   delete: (id: number) => request<void>(`/slots/${id}`, { method: 'DELETE' }),
 }
 
-// ── Appeals ────────────────────────────────────────────────────────────────
 export const appealApi = {
   getAll: () => request<Appeal[]>('/appeals'),
   getById: (id: number) => request<Appeal>(`/appeals/${id}`),
@@ -79,7 +74,6 @@ export const appealApi = {
   close: (id: number) => request<Appeal>(`/appeals/${id}/close`, { method: 'POST' }),
 }
 
-// ── Subthemes ──────────────────────────────────────────────────────────────
 export const subthemeApi = {
   getAll: () => request<Subtheme[]>('/subthemes'),
   getById: (id: number) => request<Subtheme>(`/subthemes/${id}`),
@@ -90,7 +84,6 @@ export const subthemeApi = {
   delete: (id: number) => request<void>(`/subthemes/${id}`, { method: 'DELETE' }),
 }
 
-// ── Teams ────────────────────────────────────────────────────────────────────
 export const teamApi = {
   getAll: () => request<Team[]>('/teams'),
   getById: (id: number) => request<Team>(`/teams/${id}`),
@@ -101,7 +94,6 @@ export const teamApi = {
   delete: (id: number) => request<void>(`/teams/${id}`, { method: 'DELETE' }),
 }
 
-// ── Workflows ───────────────────────────────────────────────────────────────
 export const workflowApi = {
   getAll: () => request<WorkflowGetAll[]>('/workflows'),
   getById: (id: number) => request<Workflow>(`/workflows/${id}`),

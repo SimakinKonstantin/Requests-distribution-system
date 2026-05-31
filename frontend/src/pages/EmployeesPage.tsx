@@ -20,7 +20,7 @@ export default function EmployeesPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [formError, setFormError] = useState<string | null>(null)
 
-  // load teams list
+  // Загрузка списка команд
   useState(() => {
     teamApi.getAll().then(setTeams).catch(() => setTeams([]))
   })
@@ -29,7 +29,7 @@ export default function EmployeesPage() {
   const openEdit = (item: Employee) => {
     setFormError(null)
     setEditing(item)
-    // при просмотре/редактировании: teamIds не знаем -> по умолчанию текущая команда
+    // При просмотре/редактировании идентификаторы команд неизвестны — по умолчанию текущая команда
     setForm({
       name: item.name,
       surname: item.surname,
