@@ -1,4 +1,3 @@
-#  Этап 1: сборка 
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -11,13 +10,11 @@ RUN npm ci
 
 COPY . .
 
-# Адрес бэкенда, доступный из браузера (порт проброшен на хост)
 ARG VITE_API_URL=http://localhost:8080
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm ls typescript vite && npm run build
 
-#  Этап 2: раздача статики 
 FROM node:20-alpine
 
 RUN npm install -g serve

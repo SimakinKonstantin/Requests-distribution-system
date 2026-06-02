@@ -1,7 +1,0 @@
-type: object
-required: [managerAssignedId, teamAssignedId]
-properties:
-  managerAssignedId:
-    type: string
-  teamAssignedId:
-    type: string

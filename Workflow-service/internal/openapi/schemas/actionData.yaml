@@ -1,7 +1,0 @@
-type: object
-required: [values]
-properties:
-  values:
-    type: array
-    items:
-      type: string

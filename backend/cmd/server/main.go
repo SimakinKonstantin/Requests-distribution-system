@@ -63,24 +63,18 @@ func main() {
 	h := handler.New(employeeSvc, slotSvc, appealSvc, subthemeSvc, clientSvc, themeSvc, teamSvc, workflowSvc)
 	router := h.InitRoutes()
 
-	// Подсистема балансировщика — запускается всегда, когда задан RABBIT_URL.
-	// Если RABBIT_URL не задан (локальная разработка без RabbitMQ), балансировщик пропускается.
-	if cfg.RabbitURL == "" {
-		log.Println("balancer: RABBIT_URL not set, skipping balancer startup")
-	} else {
-		balancerSvc := balancer.Services{
-			AppealService: appealSvc,
-			SlotService:   slotSvc,
-			EmployeeRepo:  employeeRepo,
-		}
-		balancerErrCh := balancer.StartInBackground(ctx, *cfg, balancerSvc)
-		go func() {
-			if err := <-balancerErrCh; err != nil && err != context.Canceled {
-				log.Fatalf("balancer stopped with error: %v", err)
-			}
-		}()
-		log.Printf("balancer: started (role=%s, queue=%s)", cfg.BalancerRole, cfg.RabbitQueue)
+	balancerSvc := balancer.Services{
+		AppealService: appealSvc,
+		SlotService:   slotSvc,
+		EmployeeRepo:  employeeRepo,
 	}
+	balancerErrCh := balancer.StartInBackground(ctx, *cfg, balancerSvc)
+	go func() {
+		if err := <-balancerErrCh; err != nil && err != context.Canceled {
+			log.Fatalf("balancer stopped with error: %v", err)
+		}
+	}()
+	log.Printf("balancer: started (role=%s, queue=%s)", cfg.BalancerRole, cfg.RabbitQueue)
 
 	log.Printf("Starting server on %s", cfg.ServerAddr)
 	if err = http.ListenAndServe(cfg.ServerAddr, router); err != nil {

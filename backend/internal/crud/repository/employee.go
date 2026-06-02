@@ -122,17 +122,14 @@ func (r *employeeRepo) Create(tx *sqlx.Tx, e model.Employee) (model.Employee, er
 }
 
 func (r *employeeRepo) Update(tx *sqlx.Tx, id int, e model.Employee) (model.Employee, error) {
-	var err error
-
 	row := toEmployeeDB(e)
 	row.ID = id
-	_, err = tx.Exec(
+	_, err := tx.Exec(
 		`UPDATE employees SET name=$1, surname=$2, "limit"=$3, email=$4, status=$5, last_assign_at=$6 WHERE id=$7`,
 		row.Name, row.Surname, row.Limit, row.Email, row.Status, row.LastAssignAt, row.ID,
 	)
 	if err != nil {
-		rberr := tx.Rollback()
-		return model.Employee{}, fmt.Errorf("employeeRepo.Update: %w, rollback error: %w", err, rberr)
+		return model.Employee{}, fmt.Errorf("employeeRepo.Update: %w", err)
 	}
 
 	type TeamEmployee struct {
@@ -142,19 +139,17 @@ func (r *employeeRepo) Update(tx *sqlx.Tx, id int, e model.Employee) (model.Empl
 	var currentTeams []TeamEmployee
 	err = tx.Select(&currentTeams, `SELECT team_id FROM teams_employees WHERE employee_id = $1`, row.ID)
 	if err != nil {
-		rberr := tx.Rollback()
-		return model.Employee{}, fmt.Errorf("employeeRepo.Update teams_employees: %w, rollback error: %w", err, rberr)
+		return model.Employee{}, fmt.Errorf("employeeRepo.Update teams_employees: %w", err)
 	}
 
 	for _, currentTeam := range currentTeams {
 		if !slices.Contains(row.TeamIDs, currentTeam.TeamID) {
 			_, err = tx.Exec(
-				`DELETE FROM teams_employees (employee_id, team_id) VALUES ($1, $2)`,
+				`DELETE FROM teams_employees WHERE employee_id = $1 AND team_id = $2`,
 				row.ID, currentTeam.TeamID,
 			)
 			if err != nil {
-				rberr := tx.Rollback()
-				return model.Employee{}, fmt.Errorf("employeeRepo.Update teams_employees: %w, rollback error: %w", err, rberr)
+				return model.Employee{}, fmt.Errorf("employeeRepo.Update teams_employees: %w", err)
 			}
 		}
 	}
@@ -166,18 +161,12 @@ func (r *employeeRepo) Update(tx *sqlx.Tx, id int, e model.Employee) (model.Empl
 				row.ID, newTeam,
 			)
 			if err != nil {
-				rberr := tx.Rollback()
-				return model.Employee{}, fmt.Errorf("employeeRepo.Update teams_employees: %w, rollback error: %w", err, rberr)
+				return model.Employee{}, fmt.Errorf("employeeRepo.Update teams_employees: %w", err)
 			}
 		}
 	}
 
-	filledRow, err := r.fillTeams(row)
-	if err != nil {
-		return model.Employee{}, fmt.Errorf("employeeRepo.Update fillTeams: %w", err)
-	}
-
-	return filledRow.toDomain(), nil
+	return row.toDomain(), nil
 }
 
 func (r *employeeRepo) Delete(tx *sqlx.Tx, id int) error {

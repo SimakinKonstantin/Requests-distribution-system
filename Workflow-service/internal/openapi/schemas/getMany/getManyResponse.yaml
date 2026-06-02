@@ -1,9 +1,0 @@
-type: object
-required: [results, meta]
-properties:
-  results:
-    type: array
-    items:
-      $ref: "./workflowDto.yaml"
-  meta:
-    $ref: "./meta.yaml"
